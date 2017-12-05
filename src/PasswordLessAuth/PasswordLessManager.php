@@ -261,7 +261,7 @@ class PasswordLessManager {
             $data = array();
             $data[PWLESS_API_PARAM_SUCCESS] = false;
             $data[PWLESS_API_PARAM_MESSAGE] = "Access Denied. Invalid API key or unconfirmed user account.";
-            return $this->response($res, 400, $data);
+            return $this->response($res, 401, $data);
         }
     }
 
