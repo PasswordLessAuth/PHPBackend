@@ -10,7 +10,8 @@
  * ii. create an entry in your local apache2 installation pointing to this directory, with a virtual host
  *     like pwlesstest.com:8080. Make sure to allow override for .htaccess.
  * iii. edit your /etc/hosts file to add an entry for pwlesstest.com pointing to 127.0.0.1
- * iv. start the apache2 + mySQL servers. Test http://pwlesstest.com:8080/pwless/info or http://pwlesstest.com:8080/. 
+ * iv. send and include the public key to your clients for server identity verification.
+ * v. start the apache2 + mySQL servers. Test http://pwlesstest.com:8080/pwless/info or http://pwlesstest.com:8080/.
  * Then, test an authenticated endpoint like http://pwlesstest.com:8080/helloworld
  */
 
