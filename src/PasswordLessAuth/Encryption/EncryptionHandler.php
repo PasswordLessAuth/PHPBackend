@@ -85,7 +85,7 @@ class EncryptionHandler {
 		else {
 			if ($key_data = $this->config->keyData) {
 				$status = openssl_sign($message, $signature, $key_data, $this->config->signatureAlgorithm);
-				if ($status == false) { error_log("Error signing data: ".openssl_error_string());  return false; }
+				if ($status == false) { return false; }
 				else if ($wrapInBase64) { return base64_encode($signature); }
 				else { return $signature; }
 			} else { return false; }

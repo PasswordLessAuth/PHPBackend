@@ -234,9 +234,6 @@ class PasswordLessManager {
         $headersApache = apache_request_headers();
         $headers = $req->getHeaders();
 
-        //error_log("get-headers: " . var_export($headers, true));
-        //error_log("apache-headers: " . var_export($headersApache, true));
-
         // Verifying Authorization Header
         $request_params = $this->getParametersFromRequest($req);
         $authenticated = false;

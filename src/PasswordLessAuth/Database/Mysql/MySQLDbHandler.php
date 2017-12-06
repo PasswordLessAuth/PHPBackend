@@ -290,7 +290,6 @@ class MySQLDbHandler implements DbHandler {
                     $auth[PWLESS_API_PARAM_NEXT_LOGIN_TOKEN] = $nextLoginKey;
                     $result[PWLESS_API_PARAM_AUTH] = $auth;
 
-                    error_log("Generated login validation: ".var_export($result, true));
                     return $result;
                 }
 		    }
@@ -682,12 +681,9 @@ class MySQLDbHandler implements DbHandler {
      * @param String $confirmAccountMode    The confirm account mode for this PasswordLessAuth server.
      */
     public function userStatusIsValid($email, $confirmAccountMode) {
-        error_log("Checking valid status for user " . $email);
         // check user status
         $userData = $this->getUserByEmail($email);
         if (!$userData) { return false; }
-        error_log(var_export($userData, true));
-        error_log("Status: " . $userData[PWLESS_API_PARAM_STATUS]);
 
         // disabled or confirmed users get a direct answer
         if ($userData[PWLESS_API_PARAM_STATUS] == PWLESS_ACCOUNT_DISABLED) { return false; }
