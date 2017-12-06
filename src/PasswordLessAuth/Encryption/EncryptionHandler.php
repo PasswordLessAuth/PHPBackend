@@ -11,7 +11,7 @@ namespace PasswordLessAuth\Encryption;
 
 require_once (__DIR__.'/../Config/Config.php');
 
-define ('PWLESS_MOST_COMMON_ENGLISH_WORDS_FILE', __DIR__."/../../misc/wordlist.txt");
+define ('PWLESS_MOST_COMMON_ENGLISH_WORDS_FILE', __DIR__."/../../resources/wordlist.txt");
 
 class EncryptionHandler {
     /** The encryption configuration for this encryption handler */
