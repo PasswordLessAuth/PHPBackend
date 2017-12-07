@@ -13,6 +13,7 @@ require_once (__DIR__."/Config/Config.php");
 
 // User id from db - Global Variable
 $pwlessauth_user_id = null;
+$pwlessauth_user_info = null;
 
 use \PasswordLessAuth\Database\DbHandler;
 use \PasswordLessAuth\Encryption\EncryptionConfiguration;
@@ -268,9 +269,13 @@ class PasswordLessManager {
         if ($retrieved_userid === false) {
             return false;
         } else {
-            global $pwlessauth_user_id;
             // get user primary key id
+            global $pwlessauth_user_id;
             $pwlessauth_user_id = $retrieved_userid;
+			// set user data
+			global $pwlessauth_user_info;
+			$pwlessauth_user_info = $this->dbHandler->getUserById($retrieved_userid);
+
             return true;
         }
     }
@@ -494,8 +499,6 @@ class PasswordLessManager {
      * url /pwless/me
      */
     function pwLessInfo ($req, $res, $next) {
-        global $pwlessauth_user_id;
-
         $data = array();
         $data[PWLESS_API_PARAM_SUCCESS] = true;
         $data[PWLESS_API_PARAM_CODE] = PWLESS_ERROR_CODE_SUCCESS;
@@ -516,10 +519,11 @@ class PasswordLessManager {
      */
     function myInfo ($req, $res, $next) {
         global $pwlessauth_user_id;
+        global $pwlessauth_user_info;
         $data = array();
 
         // fetching user data (including key information)
-        $result = $this->dbHandler->getUserById($pwlessauth_user_id, true);
+        $result = $pwless $this->dbHandler->getUserById($pwlessauth_user_id, true);
         if ($result === false) {
             $data[PWLESS_API_PARAM_SUCCESS] = false;
             $data[PWLESS_API_PARAM_CODE] = PWLESS_ERROR_CODE_UNABLE_RETRIEVE_DATA;
