@@ -523,7 +523,7 @@ class PasswordLessManager {
         $data = array();
 
         // fetching user data (including key information)
-        $result = $pwless $this->dbHandler->getUserById($pwlessauth_user_id, true);
+        $result = $this->dbHandler->getUserById($pwlessauth_user_id, true);
         if ($result === false) {
             $data[PWLESS_API_PARAM_SUCCESS] = false;
             $data[PWLESS_API_PARAM_CODE] = PWLESS_ERROR_CODE_UNABLE_RETRIEVE_DATA;
