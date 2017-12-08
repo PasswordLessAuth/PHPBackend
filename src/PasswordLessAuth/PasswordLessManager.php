@@ -21,6 +21,7 @@ use \PasswordLessAuth\Encryption\EncryptionHandler;
 use \PasswordLessAuth\Encryption\ServerEncryptionEnvironment;
 use \PasswordLessAuth\Mail\MailHandler;
 use \PasswordLessAuth\Mail\MailConfiguration;
+use \PasswordLessAuth\Utils\PasswordLessUtils;
 
 class PasswordLessManager {
     /** 
@@ -99,6 +100,31 @@ class PasswordLessManager {
         $this->dbHandler->initializePasswordLessAuthDatabase(true);
     }
     
+	public function addCustomRoute($route, $httpVerb, $func, $requiresAuthentication = true, $prependPwLessPath = false) {
+		$finalPath = $prependPwLessPath ? "/pwless" . $route : $route;
+		$route = null;
+
+		switch (mb_strtolower($httpVerb)) {
+			case "get":
+				$this->routeApp->get($finalPath, $func);
+				break;
+			case "post":
+				$this->routeApp->post($finalPath, $func);
+				break;
+			case "delete":
+				$this->routeApp->delete($finalPath, $func);
+				break;
+			case "put":
+				$this->routeApp->put($finalPath, $func);
+				break;
+			default:
+				break;
+		}
+		if ($route !== null && $requiresAuthentication) {
+			$route->add([$this, 'authenticate']);
+		}
+	}
+
     /**
      * --------------------------------- ENCRYPTION ---------------------------------
      */
@@ -306,7 +332,7 @@ class PasswordLessManager {
         $signatureAlgorithm = $request_params[PWLESS_API_PARAM_SIGNATURE_ALGORITHM];
         
         // validating email address
-        if (!$this->validateEmail($email)) { return $this->badResponse($res, PWLESS_ERROR_CODE_MALFORMED_EMAIL_ADDRESS, 'Email address is not valid'); }
+        if (!PasswordLessUtils::validateEmail($email)) { return $this->badResponse($res, PWLESS_ERROR_CODE_MALFORMED_EMAIL_ADDRESS, 'Email address is not valid'); }
 
         // optional parameters
         // if server security nonce is enabled and we receive a security nonce, sign it.
@@ -444,7 +470,7 @@ class PasswordLessManager {
         $signatureAlgorithm = $request_params[PWLESS_API_PARAM_SIGNATURE_ALGORITHM];
 
         // validating email address
-        if (!$this->validateEmail($email)) { return $this->badResponse($res, PWLESS_ERROR_CODE_MALFORMED_EMAIL_ADDRESS, 'Email address is not valid'); }
+        if (!PasswordLessUtils::validateEmail($email)) { return $this->badResponse($res, PWLESS_ERROR_CODE_MALFORMED_EMAIL_ADDRESS, 'Email address is not valid'); }
 
         // optional parameters
         // if server security nonce is enabled and we receive a security nonce, sign it.
@@ -543,7 +569,7 @@ class PasswordLessManager {
     /**
      * Returns the parameters for a given request.
      */
-    function getParametersFromRequest($req) {
+    public function getParametersFromRequest($req) {
         if ($req->isGet()) {
             $json = $req->getQueryParams();
         } else {
@@ -556,7 +582,7 @@ class PasswordLessManager {
     /**
      * Verifying required params posted or not
      */
-    function missingParametersForRequest($res, $request_params, $required_fields) {
+    public function missingParametersForRequest($res, $request_params, $required_fields) {
         $error = false;
         $error_fields = "";
 
@@ -572,27 +598,12 @@ class PasswordLessManager {
     }
 
     /**
-     * Validating email address
-     */
-    function validateEmail($email) {
-        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            $data = array();
-            $data[PWLESS_API_PARAM_SUCCESS] = false;
-            $data[PWLESS_API_PARAM_CODE] = PWLESS_ERROR_CODE_MALFORMED_EMAIL_ADDRESS;
-            $data[PWLESS_API_PARAM_MESSAGE] = 'Email address is not valid';
-            $this->response($res, 400, $data);
-            return false;
-        }
-        return true;
-    }
-
-    /**
      * Returns a "bad request" 400 response with the given error code and message.
      * @param PSR-7 $res Response routing object
      * @param Int $error_code Error code (one of PWLESS_ERROR_CODE_*)
      * @param String $error_msg Human readable error message.
      */
-    function badResponse($res, $error_code = PWLESS_ERROR_CODE_UNDEFINED_ERROR, $error_msg = "") {
+    public function badResponse($res, $error_code = PWLESS_ERROR_CODE_UNDEFINED_ERROR, $error_msg = "") {
         $data = array();
         $data[PWLESS_API_PARAM_SUCCESS] = false;
         $data[PWLESS_API_PARAM_CODE] = $error_code;
@@ -605,7 +616,7 @@ class PasswordLessManager {
      * @param PSR-7 $res Response routing object
      * @param String $parameters A string containing a description of the parameters missing
      */
-    function missingParametersResponse($res, $parameters) {
+    public function missingParametersResponse($res, $parameters) {
         $data = array();
         $data[PWLESS_API_PARAM_SUCCESS] = false;
         $data[PWLESS_API_PARAM_CODE] = PWLESS_ERROR_CODE_MISSING_OR_EMPTY_PARAMETERS;
@@ -643,7 +654,7 @@ class PasswordLessManager {
      * @param PSR-7 $res Response routing object
      * @param String $message Custom message to specify. If ommited, message will be "Operation performed successfully.".
      */
-    function simpleSuccessfulResponse($res, $message = "Operation performed successfully.") {
+    public function simpleSuccessfulResponse($res, $message = "Operation performed successfully.") {
         $data = array();
         $data[PWLESS_API_PARAM_SUCCESS] = true;
         $data[PWLESS_API_PARAM_CODE] = PWLESS_ERROR_CODE_SUCCESS;
