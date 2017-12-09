@@ -310,13 +310,19 @@ class PasswordLessManager {
      * Returns the authenticated user ID (if there's an authenticated user.)
 	 * @return Int the integer containing the user ID.
 	 */
-	public function authenticatedUserId() { return $pwlessauth_user_id; }
+	public function authenticatedUserId() {
+		global $pwlessauth_user_id;
+		return $pwlessauth_user_id;
+	}
 
 	/**
      * Returns the authenticated user data (if there's an authenticated user.)
 	 * @param Object an associative array with the user's data, including id, email, etc...
 	 */
-	public function authenticatedUserData() { return $pwlessauth_user_info; }
+	public function authenticatedUserData() {
+		global $pwlessauth_user_info;
+		return $pwlessauth_user_info;
+	}
 
 
     /**
