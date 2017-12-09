@@ -39,21 +39,16 @@ class MySQLDbHandler implements DbHandler {
      * @param String $signature_algorithm   Signature algorithm used by the device.
      * @param String $securityNonceSigned   Security nonce signed to include in the response.
      */
-    public function registerUser($email, $key_data, $key_type, $key_length, $device_info, $signature_algorithm, $securityNonceSigned) {
+    public function registerUser($email, $key_data, $key_type, $key_length, $device_info, $signature_algorithm, $securityNonceSigned, $mustConfirmEmail) {
         $userData = $this->getUserByEmail($email);
         // First check if user already existed in db
         if ($userData === false) { // First Device Registration. Generate user entry, login and api tokens.
-			$status = PWLESS_ACCOUNT_CONFIRMED;
+			$status = $mustConfirmEmail ? PWLESS_ACCOUNT_UNCONFIRMED : PWLESS_ACCOUNT_CONFIRMED;
 
             // Now verify the key
             if (!$this->verifyKeyValidity($key_data, $key_type, $key_length, $signature_algorithm)) {
                 return $this->badRequestResponse(PWLESS_ERROR_CODE_INVALID_KEY, "Sorry, the provided key is invalid or in a unsupported format.");
             }
-
-			// send confirmation email (if needed).
-			if (PWLESS_CONFIRMATION_EMAIL_REQUIRED) {
-				$status = PWLESS_ACCOUNT_UNCONFIRMED;
-			}
 
             // start transaction (atomic insert of user + device/key)
             $this->startTransaction();

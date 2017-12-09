@@ -341,7 +341,10 @@ class PasswordLessManager {
         $device_info = "Unknown device";
         if (isset($request_params[PWLESS_API_PARAM_DEVICE_INFO])) { $device_info = $request_params[PWLESS_API_PARAM_DEVICE_INFO]; }
 
-        $result = $this->dbHandler->registerUser($email, $public_key, $key_type, $key_length, $device_info, $signatureAlgorithm, $security_nonce_signed);
+		// must confirm email?
+		$mustConfirmEmail = $this->mustConfirmAccountByEmail();
+
+        $result = $this->dbHandler->registerUser($email, $public_key, $key_type, $key_length, $device_info, $signatureAlgorithm, $security_nonce_signed, $mustConfirmEmail);
         $httpCode = 400;
         
         if (isset($result[PWLESS_API_PARAM_SUCCESS]) && $result[PWLESS_API_PARAM_SUCCESS] === true) { // Successful registration!

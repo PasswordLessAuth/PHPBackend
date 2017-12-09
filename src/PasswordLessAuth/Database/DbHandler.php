@@ -22,8 +22,9 @@ interface DbHandler {
      * @param String $device_info           A string identifying the device.
      * @param String $signature_algorithm   Signature algorithm used by the device.
      * @param String $securityNonceSigned   Security nonce signed to include in the response.
+	 * @param String $mustConfirmEmail		True if the account must be confirmed via email (status = 0 instead of 1)
      */
-    public function registerUser($email, $key_data, $key_type, $key_length, $device_info, $signature_algorithm, $securityNonceSigned);
+    public function registerUser($email, $key_data, $key_type, $key_length, $device_info, $signature_algorithm, $securityNonceSigned, $mustConfirmEmail);
 
     /**
      * Creates a new user, and associated device and key entry with the given public key data.
