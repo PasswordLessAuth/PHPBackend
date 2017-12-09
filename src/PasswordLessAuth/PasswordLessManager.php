@@ -95,8 +95,8 @@ class PasswordLessManager {
 		// settings
         $this->routeApp->get('/pwless/settings', [$this, 'getUserSettings'])->add([$this, 'authenticate']);
         $this->routeApp->get('/pwless/settings/{setting}', [$this, 'getUserSetting'])->add([$this, 'authenticate']);
-        $this->routeApp->put('/pwless/settings/{setting}', [$this, 'setSetting'])->add([$this, 'authenticate']);
-        $this->routeApp->delete('/pwless/settings/{setting}', [$this, 'deleteSetting'])->add([$this, 'authenticate']);
+        $this->routeApp->put('/pwless/settings/{setting}', [$this, 'setUserSetting'])->add([$this, 'authenticate']);
+        $this->routeApp->delete('/pwless/settings/{setting}', [$this, 'deleteUserSetting'])->add([$this, 'authenticate']);
     }
     
     function optionValueForKey($options, $key) {
@@ -634,7 +634,7 @@ class PasswordLessManager {
         return $this->response($res, $status, $data);
 	}
 
-	function setSetting($req, $res, $args) {
+	function setUserSetting($req, $res, $args) {
         global $pwlessauth_user_id;
 
 		// check for required params
@@ -660,7 +660,7 @@ class PasswordLessManager {
         return $this->response($res, $status, $data);
 	}
 
-	function deleteSetting($req, $res, $args) {
+	function deleteUserSetting($req, $res, $args) {
         global $pwlessauth_user_id;
 
         // perform setting operation
