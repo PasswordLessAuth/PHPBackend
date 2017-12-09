@@ -621,7 +621,7 @@ class MySQLDbHandler implements DbHandler {
         $newSettingId = $this->conn->insert_id;
         $stmt->close();
 
-        if ($result && $newSettingId) { return $newSettingId; }
+        if ($result) { return true; }
         else { return false; }
 	}
 
