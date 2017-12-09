@@ -656,6 +656,11 @@ class PasswordLessManager {
         } else {
             $data[PWLESS_API_PARAM_SUCCESS] = true;
             $data[PWLESS_API_PARAM_CODE] = PWLESS_ERROR_CODE_SUCCESS;
+			$data[PWLESS_API_PARAM_SETTING] = array(
+				PWLESS_API_PARAM_USER_ID => $pwlessauth_user_id,
+				PWLESS_API_PARAM_SETTING => $setting,
+				PWLESS_API_PARAM_VALUE => $value
+			);
         }
         return $this->response($res, $status, $data);
 	}
