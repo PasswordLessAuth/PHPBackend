@@ -79,13 +79,24 @@ class PasswordLessManager {
     }
 
     function initializeRoutes() {
+		// authentication
         $this->routeApp->post('/pwless/signup', [$this, 'signup']);
         $this->routeApp->post('/pwless/login', [$this, 'login']);
         $this->routeApp->post('/pwless/access', [$this, 'accessToken']);
+
+		// devices
         $this->routeApp->post('/pwless/devices', [$this, 'addDevice']);
         $this->routeApp->delete('/pwless/devices', [$this, 'deleteDevice']);
+
+		// info
         $this->routeApp->get('/pwless/info', [$this, 'pwLessInfo']);
         $this->routeApp->get('/pwless/me', [$this, 'myInfo'])->add([$this, 'authenticate']);
+
+		// settings
+        $this->routeApp->get('/pwless/settings', [$this, 'getUserSettings'])->add([$this, 'authenticate']);
+        $this->routeApp->get('/pwless/settings/{setting}', [$this, 'getUserSetting'])->add([$this, 'authenticate']);
+        $this->routeApp->put('/pwless/settings/{setting}', [$this, 'setSetting'])->add([$this, 'authenticate']);
+        $this->routeApp->delete('/pwless/settings/{setting}', [$this, 'deleteSetting'])->add([$this, 'authenticate']);
     }
     
     function optionValueForKey($options, $key) {
@@ -583,6 +594,91 @@ class PasswordLessManager {
         }
         return $this->response($res, 200, $data);
     }
+
+
+    /*
+     * --------------------- SETTINGS METHODS ----------------------
+     */
+
+	function getUserSettings($req, $res, $args) {
+        global $pwlessauth_user_id;
+        $data = array();
+
+        // fetching settings data
+        $result = $this->dbHandler->getUserSettings($pwlessauth_user_id);
+		$status = 200;
+		$data[PWLESS_API_PARAM_SUCCESS] = true;
+		$data[PWLESS_API_PARAM_CODE] = PWLESS_ERROR_CODE_SUCCESS;
+		$data[PWLESS_API_PARAM_SETTINGS] = $result;
+        return $this->response($res, $status, $data);
+	}
+
+	function getUserSetting($req, $res, $args) {
+        global $pwlessauth_user_id;
+		$setting = $args[PWLESS_API_PARAM_SETTING];
+        $data = array();
+
+        // fetching settings data
+        $result = $this->dbHandler->getUserSetting($pwlessauth_user_id, $setting);
+		$status = 200;
+        if ($result === false) {
+			$status = 400;
+            $data[PWLESS_API_PARAM_SUCCESS] = false;
+            $data[PWLESS_API_PARAM_CODE] = PWLESS_ERROR_CODE_UNABLE_RETRIEVE_DATA;
+            $data[PWLESS_API_PARAM_MESSAGE] = "Unable to retrieve setting ".$setting." for the user.";
+        } else {
+            $data[PWLESS_API_PARAM_SUCCESS] = true;
+            $data[PWLESS_API_PARAM_CODE] = PWLESS_ERROR_CODE_SUCCESS;
+            $data[PWLESS_API_PARAM_SETTING] = $result;
+        }
+        return $this->response($res, $status, $data);
+	}
+
+	function setSetting($req, $res, $args) {
+        global $pwlessauth_user_id;
+
+		// check for required params
+        $request_params = $this->getParametersFromRequest($req);
+        if ($missingParams = $this->missingParametersForRequest($res, $request_params,
+        array(PWLESS_API_PARAM_VALUE))) { return $this->missingParametersResponse($res, $missingParams); }
+
+        // perform setting operation
+		$setting = $args[PWLESS_API_PARAM_SETTING];
+		$value = $request_params[PWLESS_API_PARAM_VALUE];
+        $data = array();
+		$result = $this->dbHandler->setUserSetting($pwlessauth_user_id, $setting, $value);
+		$status = 200;
+        if ($result === false) {
+			$status = 400;
+            $data[PWLESS_API_PARAM_SUCCESS] = false;
+            $data[PWLESS_API_PARAM_CODE] = PWLESS_ERROR_CODE_UNABLE_MODIFY_DATA;
+            $data[PWLESS_API_PARAM_MESSAGE] = "Unable to set setting ".$setting." to value ".$value.".";
+        } else {
+            $data[PWLESS_API_PARAM_SUCCESS] = true;
+            $data[PWLESS_API_PARAM_CODE] = PWLESS_ERROR_CODE_SUCCESS;
+        }
+        return $this->response($res, $status, $data);
+	}
+
+	function deleteSetting($req, $res, $args) {
+        global $pwlessauth_user_id;
+
+        // perform setting operation
+		$setting = $args[PWLESS_API_PARAM_SETTING];
+        $data = array();
+		$result = $this->dbHandler->delUserSetting($pwlessauth_user_id, $setting);
+		$status = 200;
+        if ($result === false) {
+			$status = 400;
+            $data[PWLESS_API_PARAM_SUCCESS] = false;
+            $data[PWLESS_API_PARAM_CODE] = PWLESS_ERROR_CODE_UNABLE_MODIFY_DATA;
+            $data[PWLESS_API_PARAM_MESSAGE] = "Unable to delete setting ".$setting.".";
+        } else {
+            $data[PWLESS_API_PARAM_SUCCESS] = true;
+            $data[PWLESS_API_PARAM_CODE] = PWLESS_ERROR_CODE_SUCCESS;
+        }
+        return $this->response($res, $status, $data);
+	}
 
     /*
      * ------------------------ AUXILIARY METHODS ------------------------

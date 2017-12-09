@@ -555,6 +555,92 @@ class MySQLDbHandler implements DbHandler {
 		return $result;
 	}
 
+    /*********************** User Settings *******************************/
+
+	 /**
+     * Gets all user settings for a concrete user.
+     * @param Int $user_id 		Id of the user.
+     */
+    public function getUserSettings($user_id) {
+	    if (empty($user_id)) return false;
+
+		$stmt = $this->conn->prepare("SELECT user_id, setting, value FROM ".self::$pwLessSettingsTable." WHERE user_id = ?");
+		$stmt->bind_param("i", $user_id);
+
+		$settings = array();
+		if ($stmt->execute()) {
+            $stmt->bind_result($user_id, $setting, $value);
+            while ($stmt->fetch()) {
+                $temp = array();
+                $temp["user_id"] = $user_id;
+                $temp["setting"] = $setting;
+                $temp["value"] = $value;
+                $settings[] = $temp;
+            }
+        }
+		return $settings;
+	}
+
+	/**
+     * Gets the user setting for a concrete user_id and a setting name.
+     * @param Int $user_id 		Id of the user.
+     * @param String $setting 	Name of the setting to retrieve.
+     */
+    public function getUserSetting($user_id, $setting) {
+	    if (empty($user_id)) return false;
+		$stmt = $this->conn->prepare("SELECT user_id, setting, value FROM ".self::$pwLessSettingsTable." WHERE user_id = ? AND setting = ?");
+		$stmt->bind_param("is", $user_id, $setting);
+
+		if ($stmt->execute()) {
+            $stmt->bind_result($user_id, $setting, $value);
+            if ($stmt->fetch()) {
+                $setting = array();
+                $user["user_id"] = $user_id;
+                $user["setting"] = $setting;
+                $user["value"] = $value;
+                $stmt->close();
+                return $setting;
+            }
+        }
+        return false;
+	}
+
+	/**
+     * Sets the user setting for a concrete user_id and a setting name.
+	 * If the setting exists, it will overwrite it. Otherwise, the setting will be created.
+     * @param Int $user_id 		Id of the user.
+     * @param String $setting 	Name of the setting to retrieve.
+	 * @param String value		Value for the setting.
+     */
+    public function setUserSetting($user_id, $setting, $value) {
+	    if (empty($user_id) || empty($setting)) return false;
+
+		$stmt = $this->conn->prepare("INSERT INTO ".self::$pwLessSettingsTable."(user_id, setting, value) values(?, ?, ?) ON DUPLICATE KEY UPDATE value = ?");
+        $stmt->bind_param("isss", $user_id, $setting, $value, $value);
+        $result = $stmt->execute();
+        $newSettingId = $this->conn->insert_id;
+        $stmt->close();
+
+        if ($result && $newSettingId) { return $newSettingId; }
+        else { return false; }
+	}
+
+	/**
+     * Deletes the user setting for a concrete user_id and a setting name, if exists.
+     * @param Int $user_id 		Id of the user.
+     * @param String $setting 	Name of the setting to retrieve.
+     */
+    public function delUserSetting($user_id, $setting) {
+	    if (empty($user_id) || empty($setting)) return false;
+
+		$stmt = $this->conn->prepare("DELETE FROM ".self::$pwLessSettingsTable." WHERE id = ? AND setting = ?");
+		$stmt->bind_param("is", $user_id, $setting);
+
+		$result = $stmt->execute();
+        $stmt->close();
+        return $result;
+	}
+
     /*********************** Auxiliary functions *******************************/
 
     /**

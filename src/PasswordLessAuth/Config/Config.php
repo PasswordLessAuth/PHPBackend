@@ -46,6 +46,7 @@ define ('PWLESS_API_PARAM_ACCESS_TOKEN', 'access_token');
 define ('PWLESS_API_PARAM_EXPIRES', 'expires');
 define ('PWLESS_API_PARAM_NEXT_LOGIN_TOKEN', 'next_login_token');
 define ('PWLESS_API_PARAM_SECURITY_CODE', 'security_code');
+define ('PWLESS_API_PARAM_SETTING', 'setting');
 define ('PWLESS_API_PARAM_SETTINGS', 'settings');
 define ('PWLESS_API_PARAM_KEY_TYPES', 'key_types');
 define ('PWLESS_API_PARAM_AUTHENTICATION_MODE', 'authentication_mode');
@@ -66,6 +67,7 @@ define ('PWLESS_API_PARAM_KEY_DATA', 'key_data');
 define ('PWLESS_API_PARAM_SIGNATURE_ALGORITHM', 'signature_algorithm');
 define ('PWLESS_API_PARAM_USER_ID', 'user_id');
 define ('PWLESS_API_PARAM_CERTIFICATE', 'certificate');
+define ('PWLESS_API_PARAM_VALUE', 'value');
 
 /**
  * Error codes
@@ -84,6 +86,7 @@ define ('PWLESS_ERROR_CODE_CODE_VALIDATION_REQUIRED', "code_validation_required"
 define ('PWLESS_ERROR_CODE_INVALID_KEY', "invalid_key");
 define ('PWLESS_ERROR_CODE_INVALID_SECURITY_CODE', "invalid_security_code");
 define ('PWLESS_ERROR_CODE_NETWORK_ERROR', "network_error");
+define ('PWLESS_ERROR_CODE_UNABLE_MODIFY_DATA', "unable_modify_data");
 
 /**
  * PwLessAuth options

@@ -171,6 +171,36 @@ interface DbHandler {
      * @param Bool $overwrite If true, the tables will recreate, even if they exist. Be careful, this will wipe out all pwLessAuth data.
      */
     public function initializePasswordLessAuthDatabase($overwrite);
+
+    /**
+     * Gets all user settings for a concrete user.
+	 * Optionally, device_id can be specified to retrieve just the settings for that device.
+     * @param Int $user_id 		Id of the user.
+     */
+    public function getUserSettings($user_id);
+
+	/**
+     * Gets the user setting for a concrete user_id and a setting name.
+     * @param Int $user_id 		Id of the user.
+     * @param String $setting 	Name of the setting to retrieve.
+     */
+    public function getUserSetting($user_id, $setting);
+
+	/**
+     * Sets the user setting for a concrete user_id and a setting name.
+	 * If the setting exists, it will overwrite it. Otherwise, the setting will be created.
+     * @param Int $user_id 		Id of the user.
+     * @param String $setting 	Name of the setting to retrieve.
+     */
+    public function setUserSetting($user_id, $setting, $value);
+
+	/**
+     * Deletes the user setting for a concrete user_id and a setting name, if exists.
+     * @param Int $user_id 		Id of the user.
+     * @param String $setting 	Name of the setting to retrieve.
+     */
+    public function delUserSetting($user_id, $setting);
+
 }
 
 ?>
