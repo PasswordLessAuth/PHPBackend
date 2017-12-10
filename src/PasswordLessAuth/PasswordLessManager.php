@@ -45,9 +45,22 @@ class PasswordLessManager {
     // Encryption public/private data for the server and encryption classes.
     private $serverEncryptionEnvironment = null;
     
-    // Current user
-    private $currentUser = null;
-    
+	// hooks
+	private $hooks = array();
+	private $validFlowsToHook = [
+		PWLESS_FLOW_SIGNUP,
+		PWLESS_FLOW_LOGIN,
+		PWLESS_FLOW_ACCESS_TOKEN,
+		PWLESS_FLOW_ADD_DEVICE,
+		PWLESS_FLOW_DEL_DEVICE,
+		PWLESS_FLOW_PWLESSINFO,
+		PWLESS_FLOW_MYINFO,
+		PWLESS_FLOW_GET_SETTINGS,
+		PWLESS_FLOW_GET_SETTING,
+		PWLESS_FLOW_SET_SETTING,
+		PWLESS_FLOW_DEL_SETTING
+	];
+
     /**
      * ------------------ INITIALIZATION AND CONFIGURATION ------------------------
      */
@@ -134,6 +147,47 @@ class PasswordLessManager {
 		if ($route !== null && $requiresAuthentication) {
 			$route->add([$this, 'authenticate']);
 		}
+	}
+
+    /**
+     * --------------------------------- HOOKS ---------------------------------
+     */
+    /**
+	 * This function allows you to define custom hooks that will be executed right after a flow has been
+	 * executed. Thus, there's a hook after the signup floor, a hookup after the login flow, etc...
+	 * The hook will be called with two parameters: $success and $data.
+	 * The first one will indicate the success or failure status of the executed flow.
+	 * The second one will contain data relative to the flow if it was successfully executed.
+	 * The data returned in each flow is:
+	 * - PWLESS_FLOW_SIGNUP: the newly created user.
+	 * - PWLESS_FLOW_LOGIN': the login token for the user.
+	 * - PWLESS_FLOW_ACCESS_TOKEN: the access token info for the user.
+	 * - PWLESS_FLOW_ADD_DEVICE: the newly added device.
+	 * - PWLESS_FLOW_DEL_DEVICE: no data is returned by this flow.
+	 * - PWLESS_FLOW_PWLESSINFO: the info to be returned to the user.
+	 * - PWLESS_FLOW_MYINFO: the user information.
+	 * - PWLESS_FLOW_GET_SETTINGS: the settings to be returned to the user.
+	 * - PWLESS_FLOW_GET_SETTING: the setting to be returned to the user.
+	 * - PWLESS_FLOW_SET_SETTING: set newly created or updated setting.
+	 * - PWLESS_FLOW_DEL_SETTING: returns no data.
+ 	 * @param String flow	A PasswordLessAuth flow, one of PWLESS_FLOW_*
+	 * @param Callable hook	The callable (function or class method) to hook to the flow.
+	 * @returns true if the hook was properly created for the flow. False if the hook or flow were invalid.
+     */
+	public function setHookForFlow($flow, $hook) {
+		if (!is_callable($hook)) { throw new Exception("Invalid hook, must be a callable function."); }
+		if (!in_array($flow, $validFlowsToHook)) { throw new Exception("Invalid flow, must be one of PaswordLessAuth flows."); }
+
+		$this->hooks[flow] = $hook;
+		return true;
+	}
+
+	/**
+	 * Deletes a hook for a flow. Look at setHookForFlow for an explanation of the $flow variable.
+	 * @param String flow	A PasswordLessAuth flow, one of PWLESS_FLOW_* (see setHookForFlow)
+	 */
+	function delHookForFlow($flow) {
+		unset($this->hooks[flow]);
 	}
 
     /**
