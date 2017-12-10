@@ -10,8 +10,8 @@ require_once __DIR__ . '/../vendor/autoload.php'; // Autoload files using Compos
 use PasswordLessAuth\Database\Mysql\MySQLDbHandler;
 
 $dbName = 'testpwless';
-$dbUsername = 'testpwless';
-$dbPassword = 'jfRLIRMJCX2gZ4AM';
+$dbUsername = 'root';
+$dbPassword = 'cambiame';
 $dbHost = '127.0.0.1';
 
 $dbHandler = new MySQLDbHandler($dbHost, $dbUsername, $dbPassword, $dbName);

@@ -9,9 +9,9 @@ require_once __DIR__ . '/../vendor/autoload.php'; // Autoload files using Compos
 
 $keyType = "rsa";
 $keyLength = 2048;
-$privateKey = __DIR__.'/private.key';
-$publicKey = __DIR__.'/public.key';
-$certificate = __DIR__.'/certificate.pem';
+$privateKey = __DIR__.'/backendTests/private.key';
+$publicKey = __DIR__.'/backendTests/public.key';
+$certificate = __DIR__.'/backendTests/certificate.pem';
 
 echo "Public key file located at ".$publicKey."\n";
 echo "Private key file located at ".$privateKey."\n";

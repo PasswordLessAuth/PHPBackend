@@ -87,17 +87,14 @@ define ('PWLESS_ERROR_CODE_INVALID_KEY', "invalid_key");
 define ('PWLESS_ERROR_CODE_INVALID_SECURITY_CODE', "invalid_security_code");
 define ('PWLESS_ERROR_CODE_NETWORK_ERROR', "network_error");
 define ('PWLESS_ERROR_CODE_UNABLE_MODIFY_DATA', "unable_modify_data");
-
-/**
- * PwLessAuth options
- **/
-define ('PWLESS_OPTION_RECREATE_PWLESS_DATABASE', 'recreate_pwless_database');
+define ('PWLESS_ERROR_CODE_USER_ALREADY_EXISTS', "user_already_exists");
 
 /**
  * PWLESSAUTH ACTIONS
 */
 define ('PWLESS_FLOW_SIGNUP', 'signup');
 define ('PWLESS_FLOW_LOGIN', 'login');
+define ('PWLESS_FLOW_CONFIRM', 'confirm');
 define ('PWLESS_FLOW_ACCESS_TOKEN', 'accessToken');
 define ('PWLESS_FLOW_ADD_DEVICE', 'addDevice');
 define ('PWLESS_FLOW_DEL_DEVICE', 'delDevice');
@@ -128,6 +125,7 @@ define ('PWLESS_ENDPOINT_CONFIRM_ACCOUNT', "/pwless/confirm");
 /**
  * Passwordless configuration and settings
  */
+define ('PWLESS_OPTION_RECREATE_PWLESS_DATABASE', 'recreate_pwless_database');
 define ('PWLESS_SETTING_CONFIRM_ACCOUNT_MODE', "confirm_account_mode");
 define ('PWLESS_SETTING_USE_SECURITY_NONCE', "use_security_nonce");
 define ('PWLESS_SETTING_AUTHENTICATION_MODE', "authentication_mode");

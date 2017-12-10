@@ -16,6 +16,7 @@ use \PasswordLessAuth\Encryption\EncryptionHandler;
 use \PasswordLessAuth\Mail\MailHandler;
 use \PasswordLessAuth\Database\DbHandler;
 use \PasswordLessAuth\Database\Mysql\MySQLDbConnect;
+use \PasswordLessAuth\PasswordLessAuthException;
 
 class MySQLDbHandler implements DbHandler {
 	// static properties and names
@@ -43,9 +44,9 @@ class MySQLDbHandler implements DbHandler {
      * @param String $key_length            Length of public key (256, 384, 1024, 2048, 4096...).
      * @param String $device_info           A string identifying the device.
      * @param String $signature_algorithm   Signature algorithm used by the device.
-     * @param String $securityNonceSigned   Security nonce signed to include in the response.
+     * @param String $mustConfirmEmail   	True if the user status should be set to 0 so the user needs to confirm their email.
      */
-    public function registerUser($email, $key_data, $key_type, $key_length, $device_info, $signature_algorithm, $securityNonceSigned, $mustConfirmEmail) {
+    public function registerUser($email, $key_data, $key_type, $key_length, $device_info, $signature_algorithm, $mustConfirmEmail) {
         $userData = $this->getUserByEmail($email);
         // First check if user already existed in db
         if ($userData === false) { // First Device Registration. Generate user entry, login and api tokens.
@@ -53,7 +54,7 @@ class MySQLDbHandler implements DbHandler {
 
             // Now verify the key
             if (!$this->verifyKeyValidity($key_data, $key_type, $key_length, $signature_algorithm)) {
-                return $this->badRequestResponse(PWLESS_ERROR_CODE_INVALID_KEY, "Sorry, the provided key is invalid or in a unsupported format.");
+				throw new PasswordLessAuthException("Sorry, the provided key is invalid or in a unsupported format.", PWLESS_ERROR_CODE_INVALID_KEY);
             }
 
             // start transaction (atomic insert of user + device/key)
@@ -67,23 +68,30 @@ class MySQLDbHandler implements DbHandler {
                 $newDeviceId = $this->addUserDeviceAndKeyEntry($newUserId, $key_data, $key_type, $device_info, $key_length, $signature_algorithm);
                 if ($newDeviceId !== false) { // success!
                     $this->commitTransaction();
-                    return $this->userSuccessfullyRegisteredResponse($newUserId, $email, $newDeviceId, $securityNonceSigned);
+
+					// now retrieve the key info for this user, construct a user data structure and return it.
+					$keyInfo = $this->getFullKeyInformationForUserWithId($newUserId, $newDeviceId);
+					$newKeyInfo = [
+						PWLESS_API_PARAM_ID => $newDeviceId, PWLESS_API_PARAM_KEY_TYPE => $key_type,
+						PWLESS_API_PARAM_SIGNATURE_ALGORITHM => $signature_algorithm, PWLESS_API_PARAM_KEY_LENGTH => $key_length,
+						PWLESS_API_PARAM_DEVICE_INFO => $device_info, PWLESS_API_PARAM_KEY_DATA => $key_data
+					];
+					$newUserInfo = [
+						PWLESS_API_PARAM_ID => $newUserId, PWLESS_API_PARAM_EMAIL => $email, PWLESS_API_PARAM_KEY => $newKeyInfo
+					];
+
+                    return $newUserInfo;
                 } else {
                     $this->rollbackTransaction();
-                    return $this->badRequestResponse(PWLESS_ERROR_CODE_UNABLE_REGISTER_USER, "Error adding user key and device entry.");
+					throw new PasswordLessAuthException("Error adding user key and device entry for newly created user.", PWLESS_ERROR_CODE_UNABLE_REGISTER_USER);
                 }
             } else { // Failed to create user: rollback
                 $this->rollbackTransaction();
-                return $this->badRequestResponse(PWLESS_ERROR_CODE_UNABLE_REGISTER_USER, "Error adding new user entry.");
+				throw new PasswordLessAuthException("Error adding new user entry.", PWLESS_ERROR_CODE_UNABLE_REGISTER_USER);
             }
 
         } else { // User with same email already existed in the db, no security code. Start "Add Device and Key" flow.
-            $securityCode = $this->securityCodeForUserWithId($userData[PWLESS_API_PARAM_ID]);
-            if ($this->mailHandler->sendSecurityCodeEmail($email, $securityCode)) {
-                return $this->codeValidationRequiredResponse($securityNonceSigned);
-            } else {
-                return $this->badRequestResponse(PWLESS_ERROR_CODE_UNABLE_SEND_MAIL, "Error sending security code email for device registration.");
-            }
+			throw new PasswordLessAuthException("User already exists, adding new device requires security code.", PWLESS_ERROR_CODE_USER_ALREADY_EXISTS);
         }
     }
 
@@ -106,7 +114,7 @@ class MySQLDbHandler implements DbHandler {
 
             // Now verify the key
             if (!$this->verifyKeyValidity($key_data, $key_type, $key_length, $signature_algorithm)) {
-                return $this->badRequestResponse(PWLESS_ERROR_CODE_INVALID_KEY, "Sorry, the provided key is invalid or in a unsupported format.");
+				throw new PasswordLessAuthException("Sorry, the provided key is invalid or in a unsupported format.", PWLESS_ERROR_CODE_INVALID_KEY);
             }
 
             // Check if the security code was correct.
@@ -116,15 +124,26 @@ class MySQLDbHandler implements DbHandler {
             if ($security_code === $correctSecurityCode) {
                 $newDeviceId = $this->addUserDeviceAndKeyEntry($userId, $key_data, $key_type, $device_info, $key_length, $signature_algorithm);
                 if ($newDeviceId !== false) {
-                    return $this->userSuccessfullyRegisteredResponse($userId, $email, $newDeviceId, $securityNonceSigned);
+					// now retrieve the key info for this user, construct a user data structure and return it.
+					$keyInfo = $this->getFullKeyInformationForUserWithId($userId, $newDeviceId);
+					$newKeyInfo = [
+						PWLESS_API_PARAM_ID => $newDeviceId, PWLESS_API_PARAM_KEY_TYPE => $key_type,
+						PWLESS_API_PARAM_SIGNATURE_ALGORITHM => $signature_algorithm, PWLESS_API_PARAM_KEY_LENGTH => $key_length,
+						PWLESS_API_PARAM_DEVICE_INFO => $device_info, PWLESS_API_PARAM_KEY_DATA => $key_data
+					];
+					$newUserInfo = [
+						PWLESS_API_PARAM_ID => $userId, PWLESS_API_PARAM_EMAIL => $email, PWLESS_API_PARAM_KEY => $newKeyInfo
+					];
+
+                    return $newUserInfo;
                 } else {
-                    return $this->badRequestResponse(PWLESS_ERROR_CODE_UNABLE_REGISTER_USER, "Unable to register device for user. Error adding new device key for the user.");
+					throw new PasswordLessAuthException("Unable to register device for user. Error adding new device key for the user.", PWLESS_ERROR_CODE_UNABLE_REGISTER_USER);
                 }
             } else {
-                return $this->badRequestResponse(PWLESS_ERROR_CODE_INVALID_SECURITY_CODE, "Unable to register device for user. Invalid security code.");
+				throw new PasswordLessAuthException("Unable to register device for user. Invalid security code.", PWLESS_ERROR_CODE_INVALID_SECURITY_CODE);
             }
         } else {
-            return $this->badRequestResponse(PWLESS_ERROR_CODE_UNABLE_REGISTER_USER, "Unable to register user. Unexpected error.");
+			throw new PasswordLessAuthException("Unable to register user. Unexpected error.", PWLESS_ERROR_CODE_UNABLE_REGISTER_USER);
         }
     }
 
@@ -170,6 +189,7 @@ class MySQLDbHandler implements DbHandler {
     }
 
     /**
+	 * Deletes the device and associated key for the user. Requires the security code.
      * Updates the user's security code. Returns the code on a successful operation, or false if an error happened.
      * @param String $email 	            User email
      * @param String $key_id                ID of the key to delete.
@@ -177,28 +197,30 @@ class MySQLDbHandler implements DbHandler {
      */
     public function deleteUserDeviceAndKeyEntry($email, $key_id, $security_code) {
         $userData = $this->getUserByEmail($email);
-        if ($userData === false) { return $this->badRequestResponse(PWLESS_ERROR_CODE_IDENTITY_VALIDATION_FAILED, "Unable to delete device and key for user. I was unable to validate the identity of the user and device."); }
+        if ($userData === false) {
+			throw new PasswordLessAuthException("Unable to delete device and key for user. I was unable to validate the identity of the user using the specified device key.", PWLESS_ERROR_CODE_IDENTITY_VALIDATION_FAILED);
+		}
         $userId = $userData[PWLESS_API_PARAM_ID];
         $keyData = $this->getFullKeyInformationForUserWithId($userId, $key_id);
-        if ($keyData === false) { return $this->badRequestResponse(PWLESS_ERROR_CODE_IDENTITY_VALIDATION_FAILED, "Unable to delete device and key for user. I was unable to validate the identity of the user and device."); }
-        $keyId = $keyData[PWLESS_API_PARAM_ID];
+        if ($keyData === false) {
+			throw new PasswordLessAuthException("Unable to delete device and key for user. I was unable to validate the identity of the user using the specified device key.", PWLESS_ERROR_CODE_IDENTITY_VALIDATION_FAILED);
+		}
 
         // First check if we have a security code
         $correctSecurityCode = $this->securityCodeForUserWithId($userData[PWLESS_API_PARAM_ID]);
-        if ($security_code !== false) {  // if we have a valid security code.
-            // Despite the result, change the security code.
-            $this->updateUserSecurityCode($userId);
-            // Check if the security code was correct.
-            if ($security_code === $correctSecurityCode) {
-                if ($this->deleteKeyEntry($keyId, $userId)) { return $this->requestSucceededResponse(); }
-                else { return $this->badRequestResponse(PWLESS_ERROR_CODE_UNDEFINED_ERROR, "Unable to delete device and key for user. An error happened while deleting the device and key entry."); }
-            } else { return $this->badRequestResponse(PWLESS_ERROR_CODE_INVALID_SECURITY_CODE, "Unable to delete device and key for user. Invalid security code."); }
-        } else {
-            // send email to user with security code.
-            if ($this->mailHandler->sendSecurityCodeEmail($email, $correctSecurityCode)) {
-                return $this->codeValidationRequiredResponse(false);
-            } else { return $this->badRequestResponse(PWLESS_ERROR_CODE_UNABLE_SEND_MAIL, "Unable to delete device and key for user. Unable to send security confirmation code to the user."); }
-        }
+
+		// Despite the result, change the security code.
+		$this->updateUserSecurityCode($userId);
+		// Check if the security code was correct.
+		if ($security_code === $correctSecurityCode) {
+			if ($this->deleteKeyEntry($key_id, $userId)) { return true; }
+			else {
+				throw new PasswordLessAuthException("Unable to delete device and key for user. An error happened while deleting the device and key entry.", PWLESS_ERROR_CODE_UNDEFINED_ERROR);
+			}
+		} else {
+			throw new PasswordLessAuthException("Unable to delete device and key for user. Invalid security code.", PWLESS_ERROR_CODE_INVALID_SECURITY_CODE);
+		}
+		return false;
     }
 
     /**
@@ -274,7 +296,7 @@ class MySQLDbHandler implements DbHandler {
                 $nextLoginKey = $this->newLoginKeyForUserKeyEntry($userData[PWLESS_API_PARAM_ID], $key_id);
                 if ($nextLoginKey !== false) {
                     // create the data that we are going to return to the user just with the interesting info.
-                    $result = $this->requestSucceededResponse();
+                    $result = array();
 
                     // user and device key info.
                     $result[PWLESS_API_PARAM_USER] = $userData;
@@ -295,7 +317,8 @@ class MySQLDbHandler implements DbHandler {
                 }
 		    }
 	    }
-	    return $this->badRequestResponse(PWLESS_ERROR_CODE_IDENTITY_VALIDATION_FAILED, "Unable to get access token. I was unable to validate the identity of the user and device.");
+		throw new PasswordLessAuthException("Unable to get access token. I was unable to validate the identity of the user and device.", PWLESS_ERROR_CODE_IDENTITY_VALIDATION_FAILED);
+		return false;
     }
 
     /**
@@ -484,9 +507,27 @@ class MySQLDbHandler implements DbHandler {
      * Retrieves the security code for a user with certain ID
      * @param Int userId    The ID of the user to retrieve the security code from.
      */
-    function securityCodeForUserWithId($userId) {
+    public function securityCodeForUserWithId($userId) {
         $stmt = $this->conn->prepare("SELECT security_code FROM ".self::$pwLessUsersTable." WHERE id = ?");
         $stmt->bind_param("i", $userId);
+        if ($stmt->execute()) {
+            $stmt->bind_result($securityCode);
+            $securityCode = null;
+            $stmt->fetch();
+            $stmt->close();
+            return $securityCode;
+        } else {
+            return false;
+        }
+    }
+
+    /**
+     * Retrieves the security code for a user with certain email
+     * @param String email    The email of the user to retrieve the security code from.
+     */
+    public function securityCodeForUserWithEmail($email) {
+        $stmt = $this->conn->prepare("SELECT security_code FROM ".self::$pwLessUsersTable." WHERE email = ?");
+        $stmt->bind_param("s", $email);
         if ($stmt->execute()) {
             $stmt->bind_result($securityCode);
             $securityCode = null;
@@ -662,84 +703,6 @@ class MySQLDbHandler implements DbHandler {
      */
     function rollbackTransaction() {
         $this->conn->query('ROLLBACK');
-    }
-
-    /**
-     * Returns a "user successfully registered" response for the First Device Registration Flow.
-     */
-    function userSuccessfullyRegisteredResponse($userId, $userEmail, $keyId, $securityNonceSigned) {
-        $data = array();
-
-        // get key data or return an error response.
-        $keyInfo = $this->getFullKeyInformationForUserWithId($userId, $keyId);
-        if ($keyInfo === false) {
-            $data[PWLESS_API_PARAM_SUCCESS] = false;
-            $data[PWLESS_API_PARAM_CODE] = PWLESS_ERROR_CODE_UNABLE_REGISTER_USER;
-            $data[PWLESS_API_PARAM_MESSAGE] = "Unable to register new device and key for user. Key not properly loaded.";
-            return $data;
-        }
-
-        // general
-        $data[PWLESS_API_PARAM_SUCCESS] = true;
-        $data[PWLESS_API_PARAM_CODE] = PWLESS_ERROR_CODE_SUCCESS;
-        $data[PWLESS_API_PARAM_MESSAGE] = "You are successfully registered";
-        if ($securityNonceSigned !== false) { $data[PWLESS_API_PARAM_SEC_NONCE_SIGNED] = $securityNonceSigned; }
-
-        // user data
-        $userData = array();
-        $userData[PWLESS_API_PARAM_ID] = $userId;
-        $userData[PWLESS_API_PARAM_EMAIL] = $userEmail;
-        $data[PWLESS_API_PARAM_USER] = $userData;
-
-        // key data
-        $keyData = array();
-        $keyData[PWLESS_API_PARAM_ID] = $keyInfo[PWLESS_API_PARAM_ID];
-        $keyData[PWLESS_API_PARAM_KEY_TYPE] = $keyInfo[PWLESS_API_PARAM_KEY_TYPE];
-        $keyData[PWLESS_API_PARAM_SIGNATURE_ALGORITHM] = $keyInfo[PWLESS_API_PARAM_SIGNATURE_ALGORITHM];
-        $keyData[PWLESS_API_PARAM_KEY_LENGTH] = $keyInfo[PWLESS_API_PARAM_KEY_LENGTH];
-        $keyData[PWLESS_API_PARAM_DEVICE_INFO] = $keyInfo[PWLESS_API_PARAM_DEVICE_INFO];
-        $data[PWLESS_API_PARAM_KEY] = $keyData;
-
-        return $data;
-    }
-
-    /**
-     * Returns a bad request response (400), with a concrete error code and message.
-     */
-    function badRequestResponse($code = PWLESS_ERROR_CODE_BAD_REQUEST, $message = "Unable to process request. Bad request.") {
-        $data = array();
-
-        // general
-        $data[PWLESS_API_PARAM_SUCCESS] = false;
-        $data[PWLESS_API_PARAM_CODE] = $code;
-        $data[PWLESS_API_PARAM_MESSAGE] = $message;
-        return $data;
-    }
-
-    /**
-     * Returns a successful response (200), with a concrete error code and message.
-     */
-    function requestSucceededResponse($code = PWLESS_ERROR_CODE_SUCCESS, $message = "Operation completed successfully.") {
-        $data = array();
-
-        // general
-        $data[PWLESS_API_PARAM_SUCCESS] = true;
-        $data[PWLESS_API_PARAM_CODE] = $code;
-        $data[PWLESS_API_PARAM_MESSAGE] = $message;
-        return $data;
-    }
-
-    /**
-     * Returns a "code validation required" response.
-     */
-    function codeValidationRequiredResponse($sec_nonce_signed) {
-        $data = array();
-
-        // general
-        $data[PWLESS_API_PARAM_SUCCESS] = false;
-        $data[PWLESS_API_PARAM_CODE] = PWLESS_ERROR_CODE_CODE_VALIDATION_REQUIRED;
-        if ($sec_nonce_signed !== false) { $data[PWLESS_API_PARAM_SEC_NONCE_SIGNED] = $sec_nonce_signed; }
-        return $data;
     }
 
     /**

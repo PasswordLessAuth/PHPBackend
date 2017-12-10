@@ -21,10 +21,9 @@ interface DbHandler {
      * @param String $key_length            Length of public key (256, 384, 1024, 2048, 4096...).
      * @param String $device_info           A string identifying the device.
      * @param String $signature_algorithm   Signature algorithm used by the device.
-     * @param String $securityNonceSigned   Security nonce signed to include in the response.
-	 * @param String $mustConfirmEmail		True if the account must be confirmed via email (status = 0 instead of 1)
+     * @param String $mustConfirmEmail   	True if the user status should be set to 0 so the user needs to confirm their email.
      */
-    public function registerUser($email, $key_data, $key_type, $key_length, $device_info, $signature_algorithm, $securityNonceSigned, $mustConfirmEmail);
+    public function registerUser($email, $key_data, $key_type, $key_length, $device_info, $signature_algorithm, $mustConfirmEmail);
 
     /**
      * Creates a new user, and associated device and key entry with the given public key data.
@@ -39,6 +38,7 @@ interface DbHandler {
     public function addDeviceToUser($email, $key_data, $key_type, $key_length, $device_info, $signature_algorithm, $security_code);
 
     /**
+	 * Deletes the device and associated key for the user. Requires the security code.
      * Updates the user's security code. Returns the code on a successful operation, or false if an error happened.
      * @param String $email 	            User email
      * @param String $key_id                ID of the key to delete.
@@ -96,7 +96,6 @@ interface DbHandler {
      * @returns array The access token for that user and that key id.
      */
     public function getKeysForUserWithId($user_id);
-
 
     /**
      * Gets the key information from concrete device of a concrete user with a email and key_id. Do not use this method
@@ -200,6 +199,12 @@ interface DbHandler {
      * @param String $setting 	Name of the setting to retrieve.
      */
     public function delUserSetting($user_id, $setting);
+
+    /**
+     * Retrieves the security code for a user with certain email
+     * @param String email    The email of the user to retrieve the security code from.
+     */
+    public function securityCodeForUserWithEmail($email);
 
 }
 
