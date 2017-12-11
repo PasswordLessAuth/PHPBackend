@@ -116,6 +116,7 @@ define ('PWLESS_TOKEN_RANDOM_BYTES_LENGTH', 40);
 define ('PWLESS_WEEK_IN_SECONDS', 7*24*60*60);
 define ('PWLESS_SECURITY_CODE_FILENAME', 'security_code.html');
 define ('PWLESS_CONFIRM_ACCOUNT_FILENAME', 'confirm_account.html');
+define ('PWLESS_MOST_COMMON_ENGLISH_WORDS_FILE', __DIR__."/../../resources/wordlist.txt");
 
 /**
  * Endpoints

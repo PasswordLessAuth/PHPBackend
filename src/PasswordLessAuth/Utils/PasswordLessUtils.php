@@ -46,12 +46,22 @@ class PasswordLessUtils {
             $data = array();
             $data[PWLESS_API_PARAM_SUCCESS] = false;
             $data[PWLESS_API_PARAM_CODE] = PWLESS_ERROR_CODE_MALFORMED_EMAIL_ADDRESS;
-            $data[PWLESS_API_PARAM_MESSAGE] = 'Email address is not valid';
+            $data[PWLESS_API_PARAM_MESSAGE] = "Email address is not valid";
             $this->response($res, 400, $data);
             return false;
         }
         return true;
     }
+
+	/**
+	 * Returns a random english word from a dictionary of most common english words.
+	 */
+	public static function randomEnglishWord() {
+        $lines = file(PWLESS_MOST_COMMON_ENGLISH_WORDS_FILE);
+        $word = $lines[array_rand($lines)];
+        $word = trim(preg_replace('/\s+/', ' ', $word));
+		return word;
+	}
 
 }
 
