@@ -943,7 +943,7 @@ class PasswordLessManager {
         $data[PWLESS_API_PARAM_SUCCESS] = false;
         $data[PWLESS_API_PARAM_CODE] = PWLESS_ERROR_CODE_MISSING_OR_EMPTY_PARAMETERS;
         $data[PWLESS_API_PARAM_MESSAGE] = 'Required field(s) ' . $parameters . ' missing or empty';
-		$return $data;
+		return $data;
     }
 
     /**
