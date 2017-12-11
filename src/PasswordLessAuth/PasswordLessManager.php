@@ -26,18 +26,18 @@ use \PasswordLessAuth\PasswordLessAuthException;
 
 class PasswordLessManager {
 	// constants
-	public const PWLESS_FLOW_SIGNUP = "signup";
-	public const PWLESS_FLOW_LOGIN = "login";
-	public const PWLESS_FLOW_CONFIRM = "confirm";
-	public const PWLESS_FLOW_ACCESS_TOKEN = "access_token";
-	public const PWLESS_FLOW_ADD_DEVICE = "add_device";
-	public const PWLESS_FLOW_DEL_DEVICE = "del_device";
-	public const PWLESS_FLOW_PWLESSINFO = "pwless_info";
-	public const PWLESS_FLOW_MYINFO = "my_info";
-	public const PWLESS_FLOW_GET_SETTINGS = "get_settings";
-	public const PWLESS_FLOW_GET_SETTING = "get_setting";
-	public const PWLESS_FLOW_SET_SETTING = "set_setting";
-	public const PWLESS_FLOW_DEL_SETTING = "del_setting";
+	const PWLESS_FLOW_SIGNUP = "signup";
+	const PWLESS_FLOW_LOGIN = "login";
+	const PWLESS_FLOW_CONFIRM = "confirm";
+	const PWLESS_FLOW_ACCESS_TOKEN = "access_token";
+	const PWLESS_FLOW_ADD_DEVICE = "add_device";
+	const PWLESS_FLOW_DEL_DEVICE = "del_device";
+	const PWLESS_FLOW_PWLESSINFO = "pwless_info";
+	const PWLESS_FLOW_MYINFO = "my_info";
+	const PWLESS_FLOW_GET_SETTINGS = "get_settings";
+	const PWLESS_FLOW_GET_SETTING = "get_setting";
+	const PWLESS_FLOW_SET_SETTING = "set_setting";
+	const PWLESS_FLOW_DEL_SETTING = "del_setting";
 
     /** 
      * Settings:

@@ -20,9 +20,9 @@ use \PasswordLessAuth\PasswordLessAuthException;
 
 class MySQLDbHandler implements DbHandler {
 	// static properties and names
-	public const PWLESS_USERS_TABLE = "pwless_users";
-	public const PWLESS_DEVICES_TABLE = "pwless_devices";
-	public const PWLESS_SETTINGS_TABLE = "pwless_settings";
+	const PWLESS_USERS_TABLE = "pwless_users";
+	const PWLESS_DEVICES_TABLE = "pwless_devices";
+	const PWLESS_SETTINGS_TABLE = "pwless_settings";
 
     // variables
     private $conn;
