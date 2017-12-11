@@ -57,16 +57,11 @@ $routeApp->get('/helloworld', function ($req, $res, $args) {
 })->add([$pwLessManager, 'authenticate']);
 
 // Add a hook so we know when someone is asking for the PWLESS_FLOW_PWLESSINFO flow.
-
-class HookManager {
-	static function pwLessInfoFlowExecuted($success, $data) {
+try {
+	$pwLessManager->setHookForFlow(PasswordLessManager::PWLESS_FLOW_PWLESSINFO, function ($success, $data) {
 		error_log("PwLessAuth server info flow executed. Result: " . $success . ". Data: ");
 		error_log(var_export($data, true));
-	}
-}
-
-try {
-	$pwLessManager->setHookForFlow(PasswordLessManager::PWLESS_FLOW_PWLESSINFO, ["HookManager", "pwLessInfoFlowExecuted"]);
+	});
 } catch (Exception $e) {
 	error_log("An error happened while trying to set the hook for the PWLESS_FLOW_PWLESSINFO flow. ".$e);
 }
