@@ -42,7 +42,7 @@ $routeApp = new \Slim\App();
 // 4. We can now build a PasswordLessAuth backend.
 $pwLessManager = new PasswordLessManager($routeApp, $dbHandler, $serverEncryptionEnvironment);
 
-// 5. That's all, now run the Slim app!
+// 5. Define some authenticated and not authenticated routes
 $routeApp->get('/', function ($req, $res, $args) {
     $data = array();
     $data["success"] = true;
@@ -56,6 +56,22 @@ $routeApp->get('/helloworld', function ($req, $res, $args) {
     $res->withHeader('Content-type', 'application/json')->withStatus(200)->write(json_encode($data));
 })->add([$pwLessManager, 'authenticate']);
 
+// Add a hook so we know when someone is asking for the PWLESS_FLOW_PWLESSINFO flow.
+
+class HookManager {
+	static function pwLessInfoFlowExecuted($success, $data) {
+		error_log("PwLessAuth server info flow executed. Result: " . $success . ". Data: ");
+		error_log(var_export($data, true));
+	}
+}
+
+try {
+	$pwLessManager->setHookForFlow(PasswordLessManager::PWLESS_FLOW_PWLESSINFO, ["HookManager", "pwLessInfoFlowExecuted"]);
+} catch (Exception $e) {
+	error_log("An error happened while trying to set the hook for the PWLESS_FLOW_PWLESSINFO flow. ".$e);
+}
+
+// Now run the routing app!
 $routeApp->run();
 
 ?>

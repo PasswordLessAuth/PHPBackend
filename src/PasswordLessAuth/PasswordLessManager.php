@@ -192,8 +192,8 @@ class PasswordLessManager {
 	 * @returns true if the hook was properly created for the flow. False if the hook or flow were invalid.
      */
 	public function setHookForFlow($flow, $hook) {
-		if (!is_callable($hook)) { throw new Exception("Invalid hook, must be a callable function."); }
-		if (!in_array($flow, $this->validFlowsToHook)) { throw new Exception("Invalid flow, must be one of PaswordLessAuth flows."); }
+		if (!is_callable($hook)) { throw new \Exception("Invalid hook, must be a callable function."); }
+		if (!in_array($flow, $this->validFlowsToHook)) { throw new \Exception("Invalid flow, must be one of PaswordLessAuth flows."); }
 
 		$this->hooks[$flow] = $hook;
 		return true;
@@ -472,7 +472,7 @@ class PasswordLessManager {
 				}
 			} else {
 				$result = $e->toErrorJsonResponse();
-				$this->executeHook(self::PWLESS_FLOW_SIGNUP, false, $e->toString());
+				$this->executeHook(self::PWLESS_FLOW_SIGNUP, false, $e);
 			}
 		}
         return $this->response($res, $httpCode, $result);
@@ -598,7 +598,7 @@ class PasswordLessManager {
 		} catch (PasswordLessAuthException $e) {
 			$httpCode = 400;
 			$result = $e->toErrorJsonResponse();
-			$this->executeHook(self::PWLESS_FLOW_ACCESS_TOKEN, false, $e->toString());
+			$this->executeHook(self::PWLESS_FLOW_ACCESS_TOKEN, false, $e);
 		}
         return $this->response($res, $httpCode, $result);
     }
@@ -654,7 +654,7 @@ class PasswordLessManager {
 		} catch (PasswordLessAuthException $e) {
 			$result = $e->toErrorJsonResponse();
 			$httpCode = 400;
-			$this->executeHook(self::PWLESS_FLOW_ADD_DEVICE, false, $e->toString());
+			$this->executeHook(self::PWLESS_FLOW_ADD_DEVICE, false, $e);
 		}
         return $this->response($res, $httpCode, $result);
     }
@@ -697,7 +697,7 @@ class PasswordLessManager {
 			} catch (PasswordLessAuthException $e) {
 				$result = $e->toErrorJsonResponse();
 				$httpCode = 400;
-				$this->executeHook(self::PWLESS_FLOW_DEL_DEVICE, false, $e->toString());
+				$this->executeHook(self::PWLESS_FLOW_DEL_DEVICE, false, $e);
 			}
         	return $this->response($res, $httpCode, $result);
 		} else { // require security code
@@ -913,9 +913,9 @@ class PasswordLessManager {
 	 * @param Bool	 $success	Indication of success or failure for the operation
 	 * @param Mixed	 $data		Data for the hook (depends on the hook)
 	 */
-	function executeHook($hook, $success, $data) {
-		if (in_array($hook, $this->hooks) && is_callable($this->hooks[$hook])) {
-			call_user_func_array($this->hooks[$hook], array($success, $data));
+	function executeHook($flow, $success, $data) {
+		if ($this->hooks[$flow] && is_callable($this->hooks[$flow])) {
+			call_user_func_array($this->hooks[$flow], array($success, $data));
 		}
 	}
 
