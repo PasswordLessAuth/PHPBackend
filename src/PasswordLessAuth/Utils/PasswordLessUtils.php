@@ -31,7 +31,7 @@ class PasswordLessUtils {
 
         // /api ?
         $requestUri = $_SERVER["REQUEST_URI"];
-        $apiPrefix = "/api/"
+        $apiPrefix = "/api/";
         if (strncmp($requestUri, $apiPrefix, strlen($apiPrefix)) === 0) {
             $pageURL .= "/api";
         }
