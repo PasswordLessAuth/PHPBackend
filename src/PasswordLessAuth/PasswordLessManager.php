@@ -914,7 +914,7 @@ class PasswordLessManager {
 	 * @param Mixed	 $data		Data for the hook (depends on the hook)
 	 */
 	function executeHook($flow, $success, $data) {
-		if ($this->hooks[$flow] && is_callable($this->hooks[$flow])) {
+		if (array_key_exists($flow, $this->hooks) && is_callable($this->hooks[$flow])) {
 			call_user_func_array($this->hooks[$flow], array($success, $data));
 		}
 	}
