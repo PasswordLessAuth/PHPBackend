@@ -338,7 +338,7 @@ class PasswordLessManager {
      * Adding Middle Layer to authenticate every request
      * Checking if the request has valid api key in the 'Authorization' header
      */
-    public function authenticate ($req, $res, $args) {
+    public function authenticate ($req, $res, $next) {
         // Getting request headers
         $headersApache = apache_request_headers();
         $headers = $req->getHeaders();
