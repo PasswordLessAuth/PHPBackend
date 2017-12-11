@@ -20,10 +20,9 @@ use \PasswordLessAuth\PasswordLessAuthException;
 
 class MySQLDbHandler implements DbHandler {
 	// static properties and names
-	static public $pwLessUsersTable = "pwless_users";
-	static public $pwLessDevicesTable = "pwless_devices";
-	static public $pwLessSettingsTable = "pwless_settings";
-
+	public const PWLESS_USERS_TABLE = "pwless_users";
+	public const PWLESS_DEVICES_TABLE = "pwless_devices";
+	public const PWLESS_SETTINGS_TABLE = "pwless_settings";
 
     // variables
     private $conn;
@@ -154,7 +153,7 @@ class MySQLDbHandler implements DbHandler {
      */
     function addUserEntry($email, $status) {
         $security_code = EncryptionHandler::generate_security_code();
-        $stmt = $this->conn->prepare("INSERT INTO ".self::$pwLessUsersTable."(email, created_at, status, security_code) values(?, now(), ?, ?)");
+        $stmt = $this->conn->prepare("INSERT INTO ".self::PWLESS_USERS_TABLE."(email, created_at, status, security_code) values(?, now(), ?, ?)");
         $stmt->bind_param("sis", $email, $status, $security_code);
         $result = $stmt->execute();
         $newUserId = $this->conn->insert_id;
@@ -178,7 +177,7 @@ class MySQLDbHandler implements DbHandler {
         $access_token = EncryptionHandler::generate_token($userId);
         $login_token = EncryptionHandler::generate_token($userId);
 
-        $stmt = $this->conn->prepare("INSERT INTO ".self::$pwLessDevicesTable."(user_id, key_data, login_token, access_token, key_type, device_info, key_length, signature_algorithm, created_at) values(?, ?, ?, ?, ?, ?, ?, ?, now())");
+        $stmt = $this->conn->prepare("INSERT INTO ".self::PWLESS_DEVICES_TABLE."(user_id, key_data, login_token, access_token, key_type, device_info, key_length, signature_algorithm, created_at) values(?, ?, ?, ?, ?, ?, ?, ?, now())");
         $stmt->bind_param("isssssis", $userId, $key_data, $login_token, $access_token, $key_type, $device_info, $key_length, $signature_algorithm);
         $result = $stmt->execute();
         $newKeyId = $this->conn->insert_id;
@@ -229,7 +228,7 @@ class MySQLDbHandler implements DbHandler {
      * @param String $user_id               ID of the user associated to this device/key entry.
      */
     public function deleteKeyEntry($key_id, $user_id) {
-        $stmt = $this->conn->prepare("DELETE FROM ".self::$pwLessDevicesTable." WHERE id = ? AND user_id = ?");
+        $stmt = $this->conn->prepare("DELETE FROM ".self::PWLESS_DEVICES_TABLE." WHERE id = ? AND user_id = ?");
         $stmt->bind_param("ii", $key_id, $user_id);
         $result = $stmt->execute();
         $stmt->close();
@@ -242,7 +241,7 @@ class MySQLDbHandler implements DbHandler {
      */
     function updateUserSecurityCode($userId) {
         $security_code = EncryptionHandler::generate_security_code();
-        $stmt = $this->conn->prepare("UPDATE ".self::$pwLessUsersTable." SET security_code = ? WHERE id = ?");
+        $stmt = $this->conn->prepare("UPDATE ".self::PWLESS_USERS_TABLE." SET security_code = ? WHERE id = ?");
         $stmt->bind_param("si", $security_code, $userId);
         $result = $stmt->execute();
         $stmt->close();
@@ -327,7 +326,7 @@ class MySQLDbHandler implements DbHandler {
      * @return boolean
      */
     public function userExists($email) {
-        $stmt = $this->conn->prepare("SELECT id from ".self::$pwLessUsersTable." WHERE email = ?");
+        $stmt = $this->conn->prepare("SELECT id from ".self::PWLESS_USERS_TABLE." WHERE email = ?");
         $stmt->bind_param("s", $email);
         $stmt->execute();
         $stmt->store_result();
@@ -343,7 +342,7 @@ class MySQLDbHandler implements DbHandler {
      */
     public function getUserByEmail($email, $include_key_information = false) {
 	    if (empty($email)) return false;
-        $stmt = $this->conn->prepare("SELECT id, email, created_at, status FROM ".self::$pwLessUsersTable." WHERE email = ?");
+        $stmt = $this->conn->prepare("SELECT id, email, created_at, status FROM ".self::PWLESS_USERS_TABLE." WHERE email = ?");
         $stmt->bind_param("s", $email);
         if ($stmt->execute()) {
             $stmt->bind_result($user_id, $email, $created_at, $status);
@@ -372,7 +371,7 @@ class MySQLDbHandler implements DbHandler {
      */
     public function getUserById($user_id, $include_key_information = false) {
 	    if (empty($user_id)) return false;
-        $stmt = $this->conn->prepare("SELECT id, email, created_at, status FROM ".self::$pwLessUsersTable." WHERE id = ?");
+        $stmt = $this->conn->prepare("SELECT id, email, created_at, status FROM ".self::PWLESS_USERS_TABLE." WHERE id = ?");
         $stmt->bind_param("i", $user_id);
         if ($stmt->execute()) {
             $stmt->bind_result($retrieved_id, $email, $status, $created_at);
@@ -401,7 +400,7 @@ class MySQLDbHandler implements DbHandler {
      */
     public function getKeysForUserWithId($user_id) {
         $keysArray = array();
-        $stmt = $this->conn->prepare("SELECT id, key_data, key_type, device_info, key_length, signature_algorithm, created_at FROM ".self::$pwLessDevicesTable." WHERE user_id = ?");
+        $stmt = $this->conn->prepare("SELECT id, key_data, key_type, device_info, key_length, signature_algorithm, created_at FROM ".self::PWLESS_DEVICES_TABLE." WHERE user_id = ?");
         $stmt->bind_param("i", $user_id);
         if ($stmt->execute()) {
             $stmt->bind_result($key_id, $key_data, $key_type, $device_info, $key_size, $signature_algorithm, $key_created_at);
@@ -446,7 +445,7 @@ class MySQLDbHandler implements DbHandler {
     public function getFullKeyInformationForUserWithId($user_id, $key_id) {
         if (!$user_id || !$key_id) { return false; }
 
-        $stmt = $this->conn->prepare("SELECT id, key_data, key_type, device_info, key_length, login_token, access_token, signature_algorithm, created_at FROM ".self::$pwLessDevicesTable." WHERE user_id = ? AND id = ?");
+        $stmt = $this->conn->prepare("SELECT id, key_data, key_type, device_info, key_length, login_token, access_token, signature_algorithm, created_at FROM ".self::PWLESS_DEVICES_TABLE." WHERE user_id = ? AND id = ?");
         $stmt->bind_param("ii", $user_id, $key_id);
         if ($stmt->execute()) {
             $stmt->bind_result($key_id, $key_data, $key_type, $device_info, $key_size, $login_token, $access_token, $signature_algorithm, $key_created_at);
@@ -475,7 +474,7 @@ class MySQLDbHandler implements DbHandler {
      * @returns String The access token for that user and that key id.
      */
     public function getAccessTokenById($user_id, $key_id) {
-        $stmt = $this->conn->prepare("SELECT access_token FROM ".self::$pwLessDevicesTable." WHERE id = ? AND user_id = ?");
+        $stmt = $this->conn->prepare("SELECT access_token FROM ".self::PWLESS_DEVICES_TABLE." WHERE id = ? AND user_id = ?");
         $stmt->bind_param("ii", $key_id, $user_id);
         if ($stmt->execute()) {
             $stmt->bind_result($access_token);
@@ -491,7 +490,7 @@ class MySQLDbHandler implements DbHandler {
      * @param String $access_token user access token
      */
     public function getUserIdForAccessToken($access_token) {
-        $stmt = $this->conn->prepare("SELECT user_id FROM ".self::$pwLessUsersTable." WHERE access_token = ?");
+        $stmt = $this->conn->prepare("SELECT user_id FROM ".self::PWLESS_USERS_TABLE." WHERE access_token = ?");
         $stmt->bind_param("s", $access_token);
         if ($stmt->execute()) {
             $stmt->bind_result($user_id);
@@ -508,7 +507,7 @@ class MySQLDbHandler implements DbHandler {
      * @param Int userId    The ID of the user to retrieve the security code from.
      */
     public function securityCodeForUserWithId($userId) {
-        $stmt = $this->conn->prepare("SELECT security_code FROM ".self::$pwLessUsersTable." WHERE id = ?");
+        $stmt = $this->conn->prepare("SELECT security_code FROM ".self::PWLESS_USERS_TABLE." WHERE id = ?");
         $stmt->bind_param("i", $userId);
         if ($stmt->execute()) {
             $stmt->bind_result($securityCode);
@@ -526,7 +525,7 @@ class MySQLDbHandler implements DbHandler {
      * @param String email    The email of the user to retrieve the security code from.
      */
     public function securityCodeForUserWithEmail($email) {
-        $stmt = $this->conn->prepare("SELECT security_code FROM ".self::$pwLessUsersTable." WHERE email = ?");
+        $stmt = $this->conn->prepare("SELECT security_code FROM ".self::PWLESS_USERS_TABLE." WHERE email = ?");
         $stmt->bind_param("s", $email);
         if ($stmt->execute()) {
             $stmt->bind_result($securityCode);
@@ -546,7 +545,7 @@ class MySQLDbHandler implements DbHandler {
      * @return mixed the ID of the user if API key was valid, false otherwise.
      */
     public function validUserIdForAccessToken($access_token) {
-        $stmt = $this->conn->prepare("SELECT ".self::$pwLessUsersTable.".id, ".self::$pwLessUsersTable.".created_at, ".self::$pwLessUsersTable.".status from ".self::$pwLessUsersTable.", ".self::$pwLessDevicesTable." WHERE ".self::$pwLessUsersTable.".id = ".self::$pwLessDevicesTable.".user_id AND ".self::$pwLessDevicesTable.".access_token = ?");
+        $stmt = $this->conn->prepare("SELECT ".self::PWLESS_USERS_TABLE.".id, ".self::PWLESS_USERS_TABLE.".created_at, ".self::PWLESS_USERS_TABLE.".status from ".self::PWLESS_USERS_TABLE.", ".self::PWLESS_DEVICES_TABLE." WHERE ".self::PWLESS_USERS_TABLE.".id = ".self::PWLESS_DEVICES_TABLE.".user_id AND ".self::PWLESS_DEVICES_TABLE.".access_token = ?");
         $stmt->bind_param("s", $access_token);
         if ($stmt->execute()) {
             $stmt->bind_result($user_id, $created_at, $status);
@@ -574,7 +573,7 @@ class MySQLDbHandler implements DbHandler {
 	 */
 	public function newLoginKeyForUserKeyEntry($user_id, $key_id) {
 		$new_login_token = EncryptionHandler::generate_token();
-        $stmt = $this->conn->prepare("UPDATE ".self::$pwLessDevicesTable." SET login_token = ? WHERE id = ? AND user_id = ?");
+        $stmt = $this->conn->prepare("UPDATE ".self::PWLESS_DEVICES_TABLE." SET login_token = ? WHERE id = ? AND user_id = ?");
         $stmt->bind_param("sii", $new_login_token, $user_id, $key_id);
         $result = $stmt->execute();
         $stmt->close();
@@ -589,7 +588,7 @@ class MySQLDbHandler implements DbHandler {
 	 * @param Int $status 	new status to set.
 	 */
 	public function setUserStatus($user_id, $status) {
-		$stmt = $this->conn->prepare("UPDATE ".self::$pwLessUsersTable." SET status = ? where id = ?");
+		$stmt = $this->conn->prepare("UPDATE ".self::PWLESS_USERS_TABLE." SET status = ? where id = ?");
 		$stmt->bind_param("ii", $status, $user_id);
         $result = $stmt->execute();
         $stmt->close();
@@ -605,7 +604,7 @@ class MySQLDbHandler implements DbHandler {
     public function getUserSettings($user_id) {
 	    if (empty($user_id)) return false;
 
-		$stmt = $this->conn->prepare("SELECT user_id, setting, value FROM ".self::$pwLessSettingsTable." WHERE user_id = ?");
+		$stmt = $this->conn->prepare("SELECT user_id, setting, value FROM ".self::PWLESS_SETTINGS_TABLE." WHERE user_id = ?");
 		$stmt->bind_param("i", $user_id);
 
 		$settings = array();
@@ -629,7 +628,7 @@ class MySQLDbHandler implements DbHandler {
      */
     public function getUserSetting($user_id, $setting) {
 	    if (empty($user_id)) return false;
-		$stmt = $this->conn->prepare("SELECT user_id, setting, value FROM ".self::$pwLessSettingsTable." WHERE user_id = ? AND setting = ?");
+		$stmt = $this->conn->prepare("SELECT user_id, setting, value FROM ".self::PWLESS_SETTINGS_TABLE." WHERE user_id = ? AND setting = ?");
 		$stmt->bind_param("is", $user_id, $setting);
 
 		if ($stmt->execute()) {
@@ -656,7 +655,7 @@ class MySQLDbHandler implements DbHandler {
     public function setUserSetting($user_id, $setting, $value) {
 	    if (empty($user_id) || empty($setting)) return false;
 
-		$stmt = $this->conn->prepare("INSERT INTO ".self::$pwLessSettingsTable."(user_id, setting, value) values(?, ?, ?) ON DUPLICATE KEY UPDATE value = ?");
+		$stmt = $this->conn->prepare("INSERT INTO ".self::PWLESS_SETTINGS_TABLE."(user_id, setting, value) values(?, ?, ?) ON DUPLICATE KEY UPDATE value = ?");
         $stmt->bind_param("isss", $user_id, $setting, $value, $value);
         $result = $stmt->execute();
         $newSettingId = $this->conn->insert_id;
@@ -674,7 +673,7 @@ class MySQLDbHandler implements DbHandler {
     public function delUserSetting($user_id, $setting) {
 	    if (empty($user_id) || empty($setting)) return false;
 
-		$stmt = $this->conn->prepare("DELETE FROM ".self::$pwLessSettingsTable." WHERE id = ? AND setting = ?");
+		$stmt = $this->conn->prepare("DELETE FROM ".self::PWLESS_SETTINGS_TABLE." WHERE id = ? AND setting = ?");
 		$stmt->bind_param("is", $user_id, $setting);
 
 		$result = $stmt->execute();
@@ -771,19 +770,19 @@ class MySQLDbHandler implements DbHandler {
 
         // detect if tables exist
         if ($overwrite === true) {
-            if (!$this->conn->query("DROP TABLE IF EXISTS ".self::$pwLessUsersTable.", ".self::$pwLessDevicesTable.", ".self::$pwLessSettingsTable)) {
+            if (!$this->conn->query("DROP TABLE IF EXISTS ".self::PWLESS_USERS_TABLE.", ".self::PWLESS_DEVICES_TABLE.", ".self::PWLESS_SETTINGS_TABLE)) {
                 die('PasswordLessAuth fatal error: unable to delete old PasswordLessAuth tables: ' . $this->conn->error);
             }
             $needsToCreateUsersTable = true;
             $needsToCreateDevicesTable = true;
         } else {
-            if (!$this->tableExists(self::$pwLessUsersTable)) { $needsToCreateUsersTable = true; }
-            if (!$this->tableExists(self::$pwLessDevicesTable)) { $needsToCreateDevicesTable = true; }
+            if (!$this->tableExists(self::PWLESS_USERS_TABLE)) { $needsToCreateUsersTable = true; }
+            if (!$this->tableExists(self::PWLESS_DEVICES_TABLE)) { $needsToCreateDevicesTable = true; }
         }
         
         // create tables if needed
         if ($needsToCreateDevicesTable) {
-            $createDevicesQuery = "CREATE TABLE `".self::$pwLessDevicesTable."` (
+            $createDevicesQuery = "CREATE TABLE `".self::PWLESS_DEVICES_TABLE."` (
               `id` int(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,
               `user_id` int(11) NOT NULL,
               `key_data` text NOT NULL,
@@ -801,7 +800,7 @@ class MySQLDbHandler implements DbHandler {
         }
         
         if ($needsToCreateUsersTable) {
-            $createUsersQuery = "CREATE TABLE `".self::$pwLessUsersTable."` (
+            $createUsersQuery = "CREATE TABLE `".self::PWLESS_USERS_TABLE."` (
               `id` int(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,
               `email` varchar(255) NOT NULL,
               `created_at` datetime NOT NULL,
@@ -814,7 +813,7 @@ class MySQLDbHandler implements DbHandler {
         }
 
 		if ($needsToCreateSettingsTable) {
-			$createSettingsQuery = "CREATE TABLE `".self::$pwLessSettingsTable."` (
+			$createSettingsQuery = "CREATE TABLE `".self::PWLESS_SETTINGS_TABLE."` (
 			  `user_id` int(11) NOT NULL,
 			  `device_id` int(11) DEFAULT NULL,
 			  `setting` varchar(255) NOT NULL,

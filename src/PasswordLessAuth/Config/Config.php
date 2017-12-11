@@ -90,23 +90,6 @@ define ('PWLESS_ERROR_CODE_UNABLE_MODIFY_DATA', "unable_modify_data");
 define ('PWLESS_ERROR_CODE_USER_ALREADY_EXISTS', "user_already_exists");
 
 /**
- * PWLESSAUTH ACTIONS
-*/
-define ('PWLESS_FLOW_SIGNUP', 'signup');
-define ('PWLESS_FLOW_LOGIN', 'login');
-define ('PWLESS_FLOW_CONFIRM', 'confirm');
-define ('PWLESS_FLOW_ACCESS_TOKEN', 'accessToken');
-define ('PWLESS_FLOW_ADD_DEVICE', 'addDevice');
-define ('PWLESS_FLOW_DEL_DEVICE', 'delDevice');
-define ('PWLESS_FLOW_PWLESSINFO', 'pwlessInfo');
-define ('PWLESS_FLOW_MYINFO', 'myInfo');
-define ('PWLESS_FLOW_GET_SETTINGS', 'getAllSettings');
-define ('PWLESS_FLOW_GET_SETTING', 'getSetting');
-define ('PWLESS_FLOW_SET_SETTING', 'setSetting');
-define ('PWLESS_FLOW_DEL_SETTING', 'delSetting');
-
-
-/**
  * Global constants
  */
 define ('PWLESS_UNCONFIRMED_ACCOUNT_USE_TIME', 604800); // 1 week time (in seconds).
