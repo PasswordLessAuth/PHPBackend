@@ -10,7 +10,7 @@
 namespace PasswordLessAuth;
 require_once (__DIR__.'/Config/Config.php');
 
-class PasswordLessAuthException extends Exception {
+class PasswordLessAuthException extends \Exception {
 	private $pwLessAuthErrorCode = PWLESS_ERROR_CODE_UNDEFINED_ERROR;
 
 	// Redefine the exception so message isn't optional
