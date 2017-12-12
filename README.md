@@ -137,7 +137,7 @@ Let's sign up our first user. In order to do that, you will need a RESTful clien
 
 The signup flow is explained in depth [here](http://passwordlessauth.com/signup_flow.html).
 
-For this examples, I will be using Postman.
+For these examples, I will be using Postman.
 
 We also need to generate a pair of public and private keys for our user. I will illustrate the process in Linux or macOS using *OpenSSL*. If you are on Windows, you should generate and check a private and public keys yourself.
 
