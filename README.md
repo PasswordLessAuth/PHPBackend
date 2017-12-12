@@ -238,7 +238,7 @@ This should be the body of the request:
 
 ```
 {
-	"email": "contact@digitalleaves.com",
+	"email": "user@email.com",
 	"key_id": 1,
 	"security_nonce": "5738929837423"
 }
