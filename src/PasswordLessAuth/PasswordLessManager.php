@@ -13,6 +13,7 @@ require_once (__DIR__."/Config/Config.php");
 
 // User id from db - Global Variable
 $pwlessauth_user_id = null;
+$pwlessauth_user_key = null;
 $pwlessauth_user_info = null;
 
 use \PasswordLessAuth\Database\DbHandler;
@@ -213,7 +214,30 @@ class PasswordLessManager {
     
     function publicEncryptionHandler()  { return $this->serverEncryptionEnvironment->getPublicEncryptionHandler(); }
     function privateEncryptionHandler() { return $this->serverEncryptionEnvironment->getPrivateEncryptionHandler(); }
-        
+
+	/**
+	 * Returns an encryption handler ready to perform operations with the public key of a concrete user.
+	 */
+	public function encryptionHandlerForAuthenticatedUser() {
+		global $pwlessauth_user_id;
+		global $pwlessauth_user_key;
+		if (!$pwlessauth_user_id || !$pwlessauth_user_key) { return false; }
+		else {
+			$keyObject = $this->dbHandler->getFullKeyInformationForUserWithId($pwlessauth_user_id, $pwlessauth_user_key);
+			if (!keyObject) { return false; }
+			else {
+				$encConfig = new EncryptionConfiguration(
+					$keyObject[PWLESS_API_PARAM_KEY_DATA],				// key data
+					$keyObject[PWLESS_API_PARAM_KEY_TYPE], 				// key type
+					$keyObject[PWLESS_API_PARAM_KEY_LENGTH], 			// key length
+					$keyObject[PWLESS_API_PARAM_SIGNATURE_ALGORITHM], 	// signature algorithm for the key
+					PWLESS_KEY_TYPE_PUBLIC 								// PUBLIC key
+				);
+				return new EncryptionHandler($encConfig);
+			}
+		}
+	}
+
     /**
      * --------------------------------- SETTINGS ---------------------------------
      */
@@ -373,16 +397,18 @@ class PasswordLessManager {
 
     function authenticateWithAccessToken($access_token) {
         // validating api key
-        $retrieved_userid = $this->dbHandler->validUserIdForAccessToken($access_token);
-        if ($retrieved_userid === false) {
+        $user_id_and_key = $this->dbHandler->validUserIdForAccessToken($access_token);
+        if ($user_id_and_key === false) {
             return false;
         } else {
             // get user primary key id
             global $pwlessauth_user_id;
-            $pwlessauth_user_id = $retrieved_userid;
+            global $pwlessauth_user_key;
+            $pwlessauth_user_id = $user_id_and_key[0];
+			$pwlessauth_user_key = $user_id_and_key[1];
 			// set user data
 			global $pwlessauth_user_info;
-			$pwlessauth_user_info = $this->dbHandler->getUserById($retrieved_userid);
+			$pwlessauth_user_info = $this->dbHandler->getUserById($pwlessauth_user_id);
 
             return true;
         }
@@ -395,6 +421,15 @@ class PasswordLessManager {
 	public function authenticatedUserId() {
 		global $pwlessauth_user_id;
 		return $pwlessauth_user_id;
+	}
+
+	/**
+     * Returns the authenticated user Key ID (if there's an authenticated user.)
+	 * @return Int the integer containing the user ID.
+	 */
+	public function authenticatedUserKeyId() {
+		global $pwlessauth_user_key;
+		return $pwlessauth_user_key;
 	}
 
 	/**
@@ -746,6 +781,7 @@ class PasswordLessManager {
      */
     function myInfo ($req, $res, $args) {
         global $pwlessauth_user_id;
+		global $pwlessauth_user_key;
         global $pwlessauth_user_info;
         $data = array();
 
@@ -757,6 +793,8 @@ class PasswordLessManager {
         } else {
             $data[PWLESS_API_PARAM_SUCCESS] = true;
             $data[PWLESS_API_PARAM_CODE] = PWLESS_ERROR_CODE_SUCCESS;
+			$data[PWLESS_API_PARAM_USER_ID] = $pwlessauth_user_id;
+			$data[PWLESS_API_PARAM_KEY_ID] = $pwlessauth_user_key;
             $data[PWLESS_API_PARAM_USER] = $result;
 			$this->executeHook(self::PWLESS_FLOW_MYINFO, true, $result);
         }

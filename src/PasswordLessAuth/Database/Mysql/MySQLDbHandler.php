@@ -539,26 +539,27 @@ class MySQLDbHandler implements DbHandler {
     }
 
     /**
-     * Validates a user API key and returns the ID of the user if it's valid, false otherwise.
+     * Validates a user API key and returns the ID of the user and the key in an array if it's valid, false otherwise.
 	 * AN API key will validate if it's valid for a user with status = confirmed or status = unconfirmed created less than a week ago.
+	 * The array will contain in [0] the user id and in [1] the device/key id.
      * @param String $access_token user api key
      * @return mixed the ID of the user if API key was valid, false otherwise.
      */
     public function validUserIdForAccessToken($access_token) {
-        $stmt = $this->conn->prepare("SELECT ".self::PWLESS_USERS_TABLE.".id, ".self::PWLESS_USERS_TABLE.".created_at, ".self::PWLESS_USERS_TABLE.".status from ".self::PWLESS_USERS_TABLE.", ".self::PWLESS_DEVICES_TABLE." WHERE ".self::PWLESS_USERS_TABLE.".id = ".self::PWLESS_DEVICES_TABLE.".user_id AND ".self::PWLESS_DEVICES_TABLE.".access_token = ?");
+        $stmt = $this->conn->prepare("SELECT ".self::PWLESS_USERS_TABLE.".id, ".self::PWLESS_USERS_TABLE.".created_at, ".self::PWLESS_USERS_TABLE.".status, ".self::PWLESS_DEVICES_TABLE.".id from ".self::PWLESS_USERS_TABLE.", ".self::PWLESS_DEVICES_TABLE." WHERE ".self::PWLESS_USERS_TABLE.".id = ".self::PWLESS_DEVICES_TABLE.".user_id AND ".self::PWLESS_DEVICES_TABLE.".access_token = ?");
         $stmt->bind_param("s", $access_token);
         if ($stmt->execute()) {
-            $stmt->bind_result($user_id, $created_at, $status);
+            $stmt->bind_result($user_id, $created_at, $status, $key_id);
             if ($stmt->fetch()) {
                 $stmt->close();
                 // check status.
                 if ($status == PWLESS_ACCOUNT_CONFIRMED) { // Account confirmed, API key valid. Return user id and proceed.
-                    return $user_id;
+                    return array($user_id, $key_id);
                 } else if ($status == PWLESS_ACCOUNT_UNCONFIRMED) { // Account unconfirmed, let the user use the backend if less than a week has passed.
                     $creation_timestamp = strtotime($created_at);
                     $current_timestamp = time();
                     if (($current_timestamp - $creation_timestamp) < PWLESS_UNCONFIRMED_ACCOUNT_USE_TIME) { // unconfirmed account use time not expired yet.
-                        return $user_id;
+                        return array($user_id, $key_id);
                     } // else will return false.
                 } // else will return false.
             }
