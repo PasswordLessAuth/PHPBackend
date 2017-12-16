@@ -224,7 +224,7 @@ class PasswordLessManager {
 		if (!$pwlessauth_user_id || !$pwlessauth_user_key) { return false; }
 		else {
 			$keyObject = $this->dbHandler->getFullKeyInformationForUserWithId($pwlessauth_user_id, $pwlessauth_user_key);
-			if (!keyObject) { return false; }
+			if (!$keyObject) { return false; }
 			else {
 				$encConfig = new EncryptionConfiguration(
 					$keyObject[PWLESS_API_PARAM_KEY_DATA],				// key data
