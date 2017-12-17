@@ -635,12 +635,12 @@ class MySQLDbHandler implements DbHandler {
 		if ($stmt->execute()) {
             $stmt->bind_result($user_id, $setting, $value);
             if ($stmt->fetch()) {
-                $setting = array();
-                $setting["user_id"] = $user_id;
-                $setting["setting"] = $setting;
-                $setting["value"] = $value;
+                $settingObject = array();
+                $settingObject["user_id"] = $user_id;
+                $settingObject["setting"] = $setting;
+                $settingObject["value"] = $value;
                 $stmt->close();
-                return $setting;
+                return $settingObject;
             }
         }
         return false;
