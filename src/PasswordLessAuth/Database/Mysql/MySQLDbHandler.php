@@ -674,7 +674,7 @@ class MySQLDbHandler implements DbHandler {
     public function delUserSetting($user_id, $setting) {
 	    if (empty($user_id) || empty($setting)) return false;
 
-		$stmt = $this->conn->prepare("DELETE FROM ".self::PWLESS_SETTINGS_TABLE." WHERE id = ? AND setting = ?");
+		$stmt = $this->conn->prepare("DELETE FROM ".self::PWLESS_SETTINGS_TABLE." WHERE user_id = ? AND setting = ?");
 		$stmt->bind_param("is", $user_id, $setting);
 
 		$result = $stmt->execute();
