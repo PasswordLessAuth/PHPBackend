@@ -808,9 +808,11 @@ class MySQLDbHandler implements DbHandler {
             }
             $needsToCreateUsersTable = true;
             $needsToCreateDevicesTable = true;
+			$needsToCreateSettingsTable = true;
         } else {
             if (!$this->tableExists(self::PWLESS_USERS_TABLE)) { $needsToCreateUsersTable = true; }
             if (!$this->tableExists(self::PWLESS_DEVICES_TABLE)) { $needsToCreateDevicesTable = true; }
+            if (!$this->tableExists(self::PWLESS_SETTINGS_TABLE)) { $needsToCreateSettingsTable = true; }
         }
         
         // create tables if needed
