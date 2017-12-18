@@ -11,16 +11,18 @@ namespace PasswordLessAuth\Mail;
 
 require_once (__DIR__.'/../Config/Config.php');
 
+use PasswordLessAuth\Mail\MailConfiguration;
+
 class MailHandler {
     // variables/config
-    private $mailConfig;
+    private $mailConfig = null;
     
     public function __construct($configuration) {
-        $this->mailConfig = $configuration;
+        $this->mailConfig = ($configuration != null ? $configuration : new MailConfiguration());
     }
     
     public function updateConfiguration($configuration) {
-        $this->mailConfig = $configuration;
+        $this->mailConfig = ($configuration != null ? $configuration : new MailConfiguration());
     }
     
 	/**
