@@ -288,9 +288,6 @@ class PasswordLessManager {
     public function setSetting($setting, $value) {
         if (array_key_exists($setting, $this->settings)) {
             $this->settings[$setting] = $value;
-
-            // don't enable mail configuration. Use enableAccountEmailConfirmation for that.
-            if ($setting == PWLESS_SETTING_MAIL_CONFIGURATION) { return false; }
             
             return true;
         }
@@ -351,7 +348,7 @@ class PasswordLessManager {
     /**
      * Updates the configuration for the mail handler and propagates it to the DbHandler
      */
-    function updateMailConfiguration($mailConfiguration) {
+    public function updateMailConfiguration($mailConfiguration) {
         $this->settings[PWLESS_SETTING_MAIL_CONFIGURATION] = $mailConfiguration; 
         $this->mailHandler->updateConfiguration($mailConfiguration);
         $this->dbHandler->setMailHandler($mailConfiguration);
