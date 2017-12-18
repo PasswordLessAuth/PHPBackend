@@ -75,12 +75,12 @@ class MailConfiguration {
     
     public function getSecurityCodeEmailPath() {
         if (isset($this->$customSecurityCodeEmailPath)) { return $this->$customSecurityCodeEmailPath; }
-        else { return __DIR__."/../resources/".PWLESS_SECURITY_CODE_FILENAME; }
+        else { return __DIR__."/../../resources/".PWLESS_SECURITY_CODE_FILENAME; }
     }
     
     public function getConfirmAccountEmailPath() {
         if (isset($this->$customSecurityCodeEmailPath)) { return $this->$confirmAccountEmailPath; }
-        else { return __DIR__."/../resources/".PWLESS_CONFIRM_ACCOUNT_FILENAME; }
+        else { return __DIR__."/../../resources/".PWLESS_CONFIRM_ACCOUNT_FILENAME; }
     }
     
 }
