@@ -23,11 +23,11 @@ class MailConfiguration {
     // Initialization/setting variables
     
     public function __construct($serviceName = null, $contactEmail = null, $customAPIURL = null, $securityCodeEmailPath = null, $confirmAccountEmailPath = null) {
-        $this->serviceName = $serviceName;
-        $this->contactEmail = $contactEmail;
-        $this->customAPIURL = $customAPIURL;
-        $this->securityCodeEmailPath = $securityCodeEmailPath;
-        $this->confirmAccountEmailPath = $confirmAccountEmailPath;
+        $this->serviceName = $serviceName || $_SERVER['SERVER_NAME'];
+        $this->contactEmail = $contactEmail || $_SERVER['SERVER_ADMIN'];
+        $this->customAPIURL = $customAPIURL || $_SERVER['SERVER_NAME'];
+        $this->securityCodeEmailPath = $securityCodeEmailPath || __DIR__."/../../resources/".PWLESS_SECURITY_CODE_FILENAME;
+        $this->confirmAccountEmailPath = $confirmAccountEmailPath || __DIR__."/../../resources/".PWLESS_CONFIRM_ACCOUNT_FILENAME;
     }
     
     public function updateServiceNameAndContactEmail($serviceName, $contactEmail) {
