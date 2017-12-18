@@ -55,6 +55,14 @@ print("Signature: ".$signature."\n");
 $signatureValid = $publicCriptor->validate_signature($token, $signature);
 print("Signature valid? ".($signatureValid ? "yes!" : "no, sorry...")."\n");
 
+// signature
+$cryptoToken = EncryptionHandler::generate_cryptographic_token(1, 1);
+print("\nCrypto token generated: $cryptoToken");
+print("\nValid for user 1, key 1 ? " . (EncryptionHandler::cryptographic_token_valid_for($cryptoToken, 1, 1)?"true":"false"));
+print("\nValid for user 1, key 2 ? " . (EncryptionHandler::cryptographic_token_valid_for($cryptoToken, 1, 2)?"true":"false"));
+print("\nValid for user 2, key 2 ? " . (EncryptionHandler::cryptographic_token_valid_for($cryptoToken, 2, 2)?"true":"false"));
+print("\nValid for user 4, key 9 ? " . (EncryptionHandler::cryptographic_token_valid_for($cryptoToken, 4, 9)?"true":"false"));
+
 echo("\nEncryption tests finished...\n");
     
 ?>

@@ -88,6 +88,8 @@ define ('PWLESS_ERROR_CODE_INVALID_SECURITY_CODE', "invalid_security_code");
 define ('PWLESS_ERROR_CODE_NETWORK_ERROR', "network_error");
 define ('PWLESS_ERROR_CODE_UNABLE_MODIFY_DATA', "unable_modify_data");
 define ('PWLESS_ERROR_CODE_USER_ALREADY_EXISTS', "user_already_exists");
+define ('PWLESS_ERROR_CODE_UNAUTHORIZED', "unauthorized");
+define ('PWLESS_ERROR_CODE_ACCESS_TOKEN_EXPIRED', "access_token_expired");
 
 /**
  * Global constants
@@ -95,8 +97,11 @@ define ('PWLESS_ERROR_CODE_USER_ALREADY_EXISTS', "user_already_exists");
 define ('PWLESS_UNCONFIRMED_ACCOUNT_USE_TIME', 604800); // 1 week time (in seconds).
 define ('PWLESS_LOGIN_REQUEST_VALIDITY_TIME', 3600); // 1 week time (in seconds).
 define ('PWLESS_SECURITY_CODE_LENGTH', 8);
-define ('PWLESS_TOKEN_RANDOM_BYTES_LENGTH', 40);
+define ('PWLESS_TOKEN_RANDOM_BYTES_LENGTH', 42);
+define ('PWLESS_TOKEN_CRYPTOGRAPHIC_BYTES_LENGTH', 9);
 define ('PWLESS_WEEK_IN_SECONDS', 7*24*60*60);
+define ('PWLESS_TOKEN_EXPIRATION_TIME_IN_MINUTES', 60);
+define ('PWLESS_TOKEN_EXPIRATION_TIME_IN_SECONDS', PWLESS_TOKEN_EXPIRATION_TIME_IN_MINUTES * 60);
 define ('PWLESS_SECURITY_CODE_FILENAME', 'security_code.html');
 define ('PWLESS_CONFIRM_ACCOUNT_FILENAME', 'confirm_account.html');
 define ('PWLESS_MOST_COMMON_ENGLISH_WORDS_FILE', __DIR__."/../../resources/wordlist.txt");

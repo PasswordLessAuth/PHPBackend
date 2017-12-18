@@ -29,6 +29,7 @@ class PasswordLessManager {
 	// constants
 	const PWLESS_FLOW_SIGNUP = "signup";
 	const PWLESS_FLOW_LOGIN = "login";
+	const PWLESS_FLOW_LOGOUT = "logout";
 	const PWLESS_FLOW_CONFIRM = "confirm";
 	const PWLESS_FLOW_ACCESS_TOKEN = "access_token";
 	const PWLESS_FLOW_ADD_DEVICE = "add_device";
@@ -66,6 +67,7 @@ class PasswordLessManager {
 	private $validFlowsToHook = [
 		self::PWLESS_FLOW_SIGNUP,
 		self::PWLESS_FLOW_LOGIN,
+		self::PWLESS_FLOW_LOGOUT,
 		self::PWLESS_FLOW_CONFIRM,
 		self::PWLESS_FLOW_ACCESS_TOKEN,
 		self::PWLESS_FLOW_ADD_DEVICE,
@@ -114,6 +116,7 @@ class PasswordLessManager {
         $this->routeApp->post('/pwless/login', [$this, 'login']);
         $this->routeApp->post('/pwless/confirm', [$this, 'confirm']);
         $this->routeApp->post('/pwless/access', [$this, 'accessToken']);
+        $this->routeApp->post('/pwless/logout', [$this, 'logout'])->add([$this, 'authenticate']);
 
 		// devices
         $this->routeApp->post('/pwless/devices', [$this, 'addDevice']);
@@ -390,14 +393,14 @@ class PasswordLessManager {
         } else {
             $data = array();
             $data[PWLESS_API_PARAM_SUCCESS] = false;
-            $data[PWLESS_API_PARAM_MESSAGE] = "Access Denied. Invalid API key or unconfirmed user account.";
+            $data[PWLESS_API_PARAM_MESSAGE] = "Access Denied. Invalid or expired access token, or unconfirmed user account.";
             return $this->response($res, 401, $data);
         }
     }
 
     function authenticateWithAccessToken($access_token) {
         // validating api key
-        $user_id_and_key = $this->dbHandler->validUserIdForAccessToken($access_token);
+        $user_id_and_key = $this->dbHandler->userIdAndDeviceKeyForAccessToken($access_token);
         if ($user_id_and_key === false) {
             return false;
         } else {
@@ -450,7 +453,7 @@ class PasswordLessManager {
      * User Registration
      * url - /pwless/signup
      * method - POST
-     * params - email, public_key
+     * params - email, key_data, key_type, key_length, signature_algorithm
      */
     function signup ($req, $res, $args) {
         // check for required params
@@ -517,7 +520,7 @@ class PasswordLessManager {
      * Confirms user registration, if needed.
      * url - /pwless/confirm
      * method - POST
-     * params - email, public_key
+     * params - code
      */
     function confirm($req, $res, $args) {
         // check for required params
@@ -552,7 +555,7 @@ class PasswordLessManager {
      * Starts the login flow, validating the user's request (user and device) and returning the login token.
      * url - /pwless/login
      * method - POST
-     * params - email, security_nonce, security_token
+     * params - email, key_id
      */
     function login ($req, $res, $args) {
         // check for required params
@@ -600,7 +603,7 @@ class PasswordLessManager {
      * Returns a valid access token by validating a user's login token signature request.
      * url - /pwless/access
      * method - POST
-     * params - email, login_key
+     * params - email, key_id, login_key_signed
      */
     function accessToken($req, $res, $args) {
         // verify required authentication_type
@@ -638,6 +641,36 @@ class PasswordLessManager {
         return $this->response($res, $httpCode, $result);
     }
 
+
+    /**
+     * Starts the logout flow, replacing the access token with another one that won't be valid for any user.
+     * url - /pwless/logout
+     * method - POST
+     * params - none
+     */
+    function logout ($req, $res, $args) {
+        global $pwlessauth_user_id;
+		global $pwlessauth_user_key;
+
+        // generate login request
+        $result = $this->dbHandler->logoutUser($pwlessauth_user_id, $pwlessauth_user_key);
+        $data = array();
+        if ($result === false) {
+            // unknown user.
+            $data[PWLESS_API_PARAM_SUCCESS] = false;
+            $data[PWLESS_API_PARAM_CODE] = PWLESS_ERROR_CODE_UNDEFINED_ERROR;
+            $data[PWLESS_API_PARAM_MESSAGE] = "You didn't think you could escape so easily, now did you?";
+			$this->executeHook(self::PWLESS_FLOW_LOGOUT, false, $data[PWLESS_API_PARAM_MESSAGE]);
+            return $this->response($res, 400, $data);
+        } else {
+            $data[PWLESS_API_PARAM_SUCCESS] = true;
+            $data[PWLESS_API_PARAM_CODE] = PWLESS_ERROR_CODE_SUCCESS;
+            $data[PWLESS_API_PARAM_MESSAGE] = "You are successfully logged out. We miss you already!";
+			$this->executeHook(self::PWLESS_FLOW_LOGOUT, true, array($pwlessauth_user_id, $pwlessauth_user_key));
+            return $this->response($res, 200, $data);
+        }
+    }
+
     /*
      * -------------------- DEVICES AND KEY MANAGEMENT --------------------
      */
@@ -646,6 +679,7 @@ class PasswordLessManager {
      * Adds a new device (and associated key) for a user.
      * method POST
      * url /pwless/devices
+	 * params - email, key_data, key_type, key_length, signature_algorithm
      */
     function addDevice ($req, $res, $args) {
         // check for required params
@@ -698,6 +732,7 @@ class PasswordLessManager {
      * Removes a device (and associated key) for a user.
      * method DELETE
      * url /pwless/devices
+	 * params - email, key_id
      */
     function deleteDevice ($req, $res, $args) {
         // check for required params
@@ -756,6 +791,7 @@ class PasswordLessManager {
      * Returns the information about the requesting user, including devices and keys.
      * method GET
      * url /pwless/me
+	 * params - none
      */
     function pwLessInfo ($req, $res, $args) {
         $data = array();
@@ -778,6 +814,7 @@ class PasswordLessManager {
      * Returns the information about the requesting user, including devices and keys.
      * method GET
      * url /pwless/me
+	 * params - none
      */
     function myInfo ($req, $res, $args) {
         global $pwlessauth_user_id;
@@ -806,6 +843,13 @@ class PasswordLessManager {
      * --------------------- SETTINGS METHODS ----------------------
      */
 
+
+    /**
+     * Returns all the user settings for the authenticated user.
+     * method GET
+     * url /pwless/settings
+	 * params - none
+     */
 	function getUserSettings($req, $res, $args) {
         global $pwlessauth_user_id;
         $data = array();
@@ -821,6 +865,12 @@ class PasswordLessManager {
         return $this->response($res, $status, $data);
 	}
 
+    /**
+     * Returns a concrete user setting for the authenticated user, specified in the URL.
+     * method GET
+     * url /pwless/settings/{setting}
+	 * params - none
+     */
 	function getUserSetting($req, $res, $args) {
         global $pwlessauth_user_id;
 		$setting = $args[PWLESS_API_PARAM_SETTING];
@@ -846,6 +896,13 @@ class PasswordLessManager {
         return $this->response($res, $status, $data);
 	}
 
+    /**
+     * Sets the value of a concrete user setting for the authenticated user, specified in the URL. If the setting
+	 * already existed, it will be overwritten
+     * method POST
+     * url /pwless/settings/{setting}
+	 * params - value
+     */
 	function setUserSetting($req, $res, $args) {
         global $pwlessauth_user_id;
 
@@ -886,6 +943,12 @@ class PasswordLessManager {
         return $this->response($res, $status, $data);
 	}
 
+    /**
+     * Deletes a concrete user setting for the authenticated user, specified in the URL.
+     * method DELETE
+     * url /pwless/settings/{setting}
+	 * params - none
+     */
 	function deleteUserSetting($req, $res, $args) {
         global $pwlessauth_user_id;
 

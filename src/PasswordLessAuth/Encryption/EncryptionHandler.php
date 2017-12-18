@@ -97,10 +97,41 @@ class EncryptionHandler {
 		if ($result == 1) { return true; } else { return false; }
 	}
 
-	public static function generate_token($prefix = null) {
+	public static function generate_random_token($prefix = null) {
         $randomString = base64_encode(openssl_random_pseudo_bytes(PWLESS_TOKEN_RANDOM_BYTES_LENGTH));
-        if ($prefix !== null) { return "{$prefix}" . "_" . $randomString; }
+        if ($prefix !== null) { return "{$prefix}" . "." . $randomString; }
 		else { return $randomString; }
+	}
+
+	public static function generate_cryptographic_token($userId, $keyId) {
+		$randomString = base64_encode(openssl_random_pseudo_bytes(PWLESS_TOKEN_CRYPTOGRAPHIC_BYTES_LENGTH));
+		$token = $userId . "." . $keyId . "." . strval(time() + PWLESS_TOKEN_EXPIRATION_TIME_IN_SECONDS) . "." . $randomString;
+		// append SHA256 hash
+		$hash = hash("sha256", $token);
+		return $token . "." . $hash;
+	}
+
+	public static function cryptographic_token_valid_for($token, $userId, $keyId) {
+		// 1. extract the parts
+		$parts = explode(".", $token);
+		if (count($parts) < 5) { return false; }
+		$tokenUserId = $parts[0];
+		$tokenKeyId = $parts[1];
+		$timeStr = $parts[2];
+		$origToken = $tokenUserId . "." . $tokenKeyId . "." . $timeStr . "." . $parts[3];
+		$checksum = $parts[4];
+
+		// 2. check user id and key id
+		if ($userId != $tokenUserId) { return false; }
+		if ($keyId != $tokenKeyId) { return false; }
+		// 3. check time
+		$time = intval($timeStr);
+		if (time() > $time) { return false; }
+		// 4. check the hash
+		if (hash("sha256", $origToken) != $checksum) { return false; }
+
+		// If everything passed, return true
+		return true;
 	}
 
     public static function generate_security_code() {

@@ -174,8 +174,8 @@ class MySQLDbHandler implements DbHandler {
      */
     function addUserDeviceAndKeyEntry($userId, $key_data, $key_type, $device_info, $key_length, $signature_algorithm) {
         // generate tokens
-        $access_token = EncryptionHandler::generate_token($userId);
-        $login_token = EncryptionHandler::generate_token($userId);
+        $access_token = EncryptionHandler::generate_random_token("0"); // invalid for eny user.
+        $login_token = EncryptionHandler::generate_random_token($userId);
 
         $stmt = $this->conn->prepare("INSERT INTO ".self::PWLESS_DEVICES_TABLE."(user_id, key_data, login_token, access_token, key_type, device_info, key_length, signature_algorithm, created_at) values(?, ?, ?, ?, ?, ?, ?, ?, now())");
         $stmt->bind_param("isssssis", $userId, $key_data, $login_token, $access_token, $key_type, $device_info, $key_length, $signature_algorithm);
@@ -276,7 +276,7 @@ class MySQLDbHandler implements DbHandler {
      * @param String $login_signature The login key signature returned by the user to the login request.
      * @returns mixed an associative array with the user's data if the login validation succeed, false otherwise
      */
-    public function validateLogin($email, $key_id, $login_token_signed, $authenticationMode) {
+    public function validateLogin($email, $key_id, $login_token_signed) {
         // get user data and verify that the account has been activated or less than 7 days have passed.
         $userData = $this->getUserByEmail($email);
 
@@ -294,7 +294,11 @@ class MySQLDbHandler implements DbHandler {
                 // change and store login key
                 $nextLoginKey = $this->newLoginKeyForUserKeyEntry($userData[PWLESS_API_PARAM_ID], $key_id);
                 if ($nextLoginKey !== false) {
-                    // create the data that we are going to return to the user just with the interesting info.
+					// calculate next access token and store it
+					$nextAccessToken = $this->newAccessTokenForUserKeyEntry($userData[PWLESS_API_PARAM_ID], $key_id);
+					$expirationDate = $this->addMinutesToDate(PWLESS_TOKEN_EXPIRATION_TIME_IN_MINUTES); // 1h
+
+					// create the data that we are going to return to the user just with the interesting info.
                     $result = array();
 
                     // user and device key info.
@@ -303,12 +307,8 @@ class MySQLDbHandler implements DbHandler {
 
                     // auth data
                     $auth = array();
-                    $auth[PWLESS_API_PARAM_ACCESS_TOKEN] = $userKey[PWLESS_API_PARAM_ACCESS_TOKEN];
-                    if ($authenticationMode == PWLESS_AUTHENTICATION_MODE_STRICT) {
-                        $auth[PWLESS_API_PARAM_EXPIRES] = $this->addMinutesToDate(60); // 1h
-                    } else {
-                        $auth[PWLESS_API_PARAM_EXPIRES] = $this->addMinutesToDate(1440); // 24h
-                    }
+                    $auth[PWLESS_API_PARAM_ACCESS_TOKEN] = $nextAccessToken;
+                    $auth[PWLESS_API_PARAM_EXPIRES] = $expirationDate;
                     $auth[PWLESS_API_PARAM_NEXT_LOGIN_TOKEN] = $nextLoginKey;
                     $result[PWLESS_API_PARAM_AUTH] = $auth;
 
@@ -543,9 +543,9 @@ class MySQLDbHandler implements DbHandler {
 	 * AN API key will validate if it's valid for a user with status = confirmed or status = unconfirmed created less than a week ago.
 	 * The array will contain in [0] the user id and in [1] the device/key id.
      * @param String $access_token user api key
-     * @return mixed the ID of the user if API key was valid, false otherwise.
+     * @return array An array with the id (0) and key (1) of the user if API key was valid, false otherwise.
      */
-    public function validUserIdForAccessToken($access_token) {
+    public function userIdAndDeviceKeyForAccessToken($access_token) {
         $stmt = $this->conn->prepare("SELECT ".self::PWLESS_USERS_TABLE.".id, ".self::PWLESS_USERS_TABLE.".created_at, ".self::PWLESS_USERS_TABLE.".status, ".self::PWLESS_DEVICES_TABLE.".id from ".self::PWLESS_USERS_TABLE.", ".self::PWLESS_DEVICES_TABLE." WHERE ".self::PWLESS_USERS_TABLE.".id = ".self::PWLESS_DEVICES_TABLE.".user_id AND ".self::PWLESS_DEVICES_TABLE.".access_token = ?");
         $stmt->bind_param("s", $access_token);
         if ($stmt->execute()) {
@@ -553,15 +553,17 @@ class MySQLDbHandler implements DbHandler {
             if ($stmt->fetch()) {
                 $stmt->close();
                 // check status.
-                if ($status == PWLESS_ACCOUNT_CONFIRMED) { // Account confirmed, API key valid. Return user id and proceed.
-                    return array($user_id, $key_id);
-                } else if ($status == PWLESS_ACCOUNT_UNCONFIRMED) { // Account unconfirmed, let the user use the backend if less than a week has passed.
-                    $creation_timestamp = strtotime($created_at);
-                    $current_timestamp = time();
-                    if (($current_timestamp - $creation_timestamp) < PWLESS_UNCONFIRMED_ACCOUNT_USE_TIME) { // unconfirmed account use time not expired yet.
-                        return array($user_id, $key_id);
-                    } // else will return false.
-                } // else will return false.
+				if (EncryptionHandler::cryptographic_token_valid_for($access_token, $user_id, $key_id)) {
+					if ($status == PWLESS_ACCOUNT_CONFIRMED) { // Account confirmed, API key valid. Return user id and proceed.
+						return array($user_id, $key_id);
+					} else if ($status == PWLESS_ACCOUNT_UNCONFIRMED) { // Account unconfirmed, let the user use the backend if less than a week has passed.
+						$creation_timestamp = strtotime($created_at);
+						$current_timestamp = time();
+						if (($current_timestamp - $creation_timestamp) < PWLESS_UNCONFIRMED_ACCOUNT_USE_TIME) { // unconfirmed account use time not expired yet.
+							return array($user_id, $key_id);
+						} // else will return false.
+					} // else will return false.
+				} else { return false; }
             }
 		}
 		return false;
@@ -573,7 +575,7 @@ class MySQLDbHandler implements DbHandler {
 	 * @returns the newly generated login token or false if it couldn't be generated and inserted in the database.
 	 */
 	public function newLoginKeyForUserKeyEntry($user_id, $key_id) {
-		$new_login_token = EncryptionHandler::generate_token();
+		$new_login_token = EncryptionHandler::generate_random_token();
         $stmt = $this->conn->prepare("UPDATE ".self::PWLESS_DEVICES_TABLE." SET login_token = ? WHERE id = ? AND user_id = ?");
         $stmt->bind_param("sii", $new_login_token, $user_id, $key_id);
         $result = $stmt->execute();
@@ -584,6 +586,23 @@ class MySQLDbHandler implements DbHandler {
 	}
 
 	/**
+	 * Generates and updates a new access_token for a user and device.
+	 * @param Int user_id	ID of the user.
+	 * @param Int device_id	ID of the device/key.
+	 * @return String access_token the updated access token.
+	 */
+	function newAccessTokenForUserKeyEntry($user_id, $key_id) {
+		$new_access_token = EncryptionHandler::generate_cryptographic_token($user_id, $key_id);
+        $stmt = $this->conn->prepare("UPDATE ".self::PWLESS_DEVICES_TABLE." SET access_token = ? WHERE id = ? AND user_id = ?");
+        $stmt->bind_param("sii", $new_access_token, $user_id, $key_id);
+        $result = $stmt->execute();
+        $stmt->close();
+
+	    if ($result === false) { return false; }
+	    else { return $new_access_token; }
+	}
+
+	/**
 	 * Sets the status of a user identified with an id to a given value.
 	 * @param Int $user_id	ID of the user
 	 * @param Int $status 	new status to set.
@@ -591,6 +610,19 @@ class MySQLDbHandler implements DbHandler {
 	public function setUserStatus($user_id, $status) {
 		$stmt = $this->conn->prepare("UPDATE ".self::PWLESS_USERS_TABLE." SET status = ? where id = ?");
 		$stmt->bind_param("ii", $status, $user_id);
+        $result = $stmt->execute();
+        $stmt->close();
+		return $result;
+	}
+
+	/**
+	 * Logs the user out. Should replace the access token in the database with a random value that's guaranteed
+	 * not to allow any user to authenticate using it (i.e: don't validates user/key/hash checks).
+	 */
+	public function logoutUser($user_id, $key_id) {
+		$access_token = EncryptionHandler::generate_random_token("0"); // invalid for any user.
+        $stmt = $this->conn->prepare("UPDATE ".self::PWLESS_DEVICES_TABLE." SET access_token = ? WHERE id = ? AND user_id = ?");
+        $stmt->bind_param("sii", $access_token, $user_id, $key_id);
         $result = $stmt->execute();
         $stmt->close();
 		return $result;
@@ -787,8 +819,8 @@ class MySQLDbHandler implements DbHandler {
               `id` int(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,
               `user_id` int(11) NOT NULL,
               `key_data` text NOT NULL,
-              `login_token` varchar(80) NOT NULL,
-              `access_token` varchar(80) NOT NULL,
+              `login_token` varchar(255) NOT NULL,
+              `access_token` varchar(255) NOT NULL,
               `key_type` varchar(40) NOT NULL,
               `device_info` varchar(255) NOT NULL,
               `key_length` int(11) NOT NULL,

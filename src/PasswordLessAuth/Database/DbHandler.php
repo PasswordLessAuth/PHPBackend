@@ -67,7 +67,7 @@ interface DbHandler {
      * @param String $login_signature The login key signature returned by the user to the login request.
      * @returns mixed an associative array with the user's data if the login validation succeed, false otherwise
      */
-    public function validateLogin($email, $key_id, $login_token_signed, $authenticationMode);
+    public function validateLogin($email, $key_id, $login_token_signed);
 
     /**
      * Checking for user by email address
@@ -133,9 +133,9 @@ interface DbHandler {
      * Validates a user API key and returns the ID of the user if it's valid, false otherwise.
 	 * AN API key will validate if it's valid for a user with status = confirmed or status = unconfirmed created less than a week ago.
      * @param String $access_token user api key
-     * @return mixed the ID of the user if API key was valid, false otherwise.
+     * @return array An array with the id (0) and key (1) of the user if API key was valid, false otherwise.
      */
-    public function validUserIdForAccessToken($access_token);
+    public function userIdAndDeviceKeyForAccessToken($access_token);
 
     /**
 	 * Generates a new login token, associates it with the user and returns it if successful.
@@ -206,6 +206,11 @@ interface DbHandler {
      */
     public function securityCodeForUserWithEmail($email);
 
+	/**
+	 * Logs the user out. Should replace the access token in the database with a random value that's guaranteed
+	 * not to allow any user to authenticate using it (i.e: don't validates user/key/hash checks).
+	 */
+	public function logoutUser($user_id, $key_id);
 }
 
 ?>
