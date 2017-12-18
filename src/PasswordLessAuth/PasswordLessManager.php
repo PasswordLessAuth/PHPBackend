@@ -502,7 +502,7 @@ class PasswordLessManager {
 			if ($e->getPwLessAuthErrorCode() == PWLESS_ERROR_CODE_USER_ALREADY_EXISTS) {
 				$securityCode = $this->dbHandler->securityCodeForUserWithEmail($email);
 				if ($this->mailHandler->sendSecurityCodeEmail($email, $securityCode)) {
-					$result = codeValidationRequiredResponse($securityNonceSigned);
+					$result = $this->codeValidationRequiredResponse($securityNonceSigned);
 					$this->executeHook(self::PWLESS_FLOW_SIGNUP, false, "User already exists. Code validation needed.");
 				} else {
 					$result = $this->badRequestResponse(PWLESS_ERROR_CODE_UNABLE_SEND_MAIL, "Error sending security code email for device registration.");
