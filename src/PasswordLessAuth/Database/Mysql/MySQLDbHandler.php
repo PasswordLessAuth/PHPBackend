@@ -594,7 +594,7 @@ class MySQLDbHandler implements DbHandler {
 	function newAccessTokenForUserKeyEntry($user_id, $key_id) {
 		$new_access_token = EncryptionHandler::generate_cryptographic_token($user_id, $key_id);
         $stmt = $this->conn->prepare("UPDATE ".self::PWLESS_DEVICES_TABLE." SET access_token = ? WHERE id = ? AND user_id = ?");
-        $stmt->bind_param("sii", $new_access_token, $user_id, $key_id);
+        $stmt->bind_param("sii", $new_access_token, $key_id, $user_id);
         $result = $stmt->execute();
         $stmt->close();
 
