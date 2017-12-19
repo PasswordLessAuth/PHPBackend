@@ -29,6 +29,7 @@ class MailHandler {
 	 * Builds and send a registration security code that allows the user to perform privileged operations.
 	 */
 	public function sendSecurityCodeEmail($email, $security_code) {
+		error_log("Using security code email path: " . $this->mailConfig->getSecurityCodeEmailPath());
         $htmlContent = file_get_contents($this->mailConfig->getSecurityCodeEmailPath());
         $serverContactName = $this->mailConfig->getContactEmail();
         $applicationName = $this->mailConfig->getServiceName();

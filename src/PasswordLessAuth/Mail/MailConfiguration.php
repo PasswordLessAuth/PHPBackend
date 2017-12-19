@@ -62,7 +62,7 @@ class MailConfiguration {
     }
     
     public function getContactEmail() {
-        if ($this->contactEmail) { return $this->replyEmail; }
+        if ($this->contactEmail) { return $this->contactEmail; }
         else { return $_SERVER['SERVER_ADMIN']; } // fallback
     }
     
