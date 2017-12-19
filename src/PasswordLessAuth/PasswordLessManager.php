@@ -719,7 +719,7 @@ class PasswordLessManager {
 		$httpCode = 200;
 		try {
 			$userAndKeyData = $this->dbHandler->addDeviceToUser($email, $public_key, $key_type, $key_length, $device_info, $signatureAlgorithm, $security_code);
-			$result = $this->userSuccessfullyRegisteredResponse($registeredUser, $security_nonce_signed);
+			$result = $this->userSuccessfullyRegisteredResponse($userAndKeyData, $security_nonce_signed);
 			$this->executeHook(self::PWLESS_FLOW_ADD_DEVICE, true, $userAndKeyData);
 		} catch (PasswordLessAuthException $e) {
 			$result = $e->toErrorJsonResponse();
@@ -755,7 +755,6 @@ class PasswordLessManager {
 			$security_code = $request_params[PWLESS_API_PARAM_SECURITY_CODE];
 			$httpCode = 200;
 			$result = null;
-
 			try {
 				if ($this->dbHandler->deleteUserDeviceAndKeyEntry($email, $key_id, $security_code)) {
 					$result = $this->requestSucceededResponse();
@@ -772,14 +771,16 @@ class PasswordLessManager {
 			}
         	return $this->response($res, $httpCode, $result);
 		} else { // require security code
+			$httpCode = 400;
 			$securityCode = $this->db->securityCodeForUserWithEmail($email);
             if ($this->mailHandler->sendSecurityCodeEmail($email, $securityCode)) {
 				$this->executeHook(self::PWLESS_FLOW_DEL_DEVICE, false, "Code validation required for deleting device.");
-                return $this->codeValidationRequiredResponse(false);
+                $result =  $this->codeValidationRequiredResponse(false);
             } else {
 				$this->executeHook(self::PWLESS_FLOW_DEL_DEVICE, false, "Unable to delete device and key for user. Unable to send security confirmation code to the user.");
-				return $this->badRequestResponse(PWLESS_ERROR_CODE_UNABLE_SEND_MAIL, "Unable to delete device and key for user. Unable to send security confirmation code to the user.");
+				$result = $this->badRequestResponse(PWLESS_ERROR_CODE_UNABLE_SEND_MAIL, "Unable to delete device and key for user. Unable to send security confirmation code to the user.");
 			}
+        	return $this->response($res, $httpCode, $result);
 		}
 
     }
