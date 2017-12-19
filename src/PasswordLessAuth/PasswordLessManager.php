@@ -287,8 +287,10 @@ class PasswordLessManager {
      */
     public function setSetting($setting, $value) {
         if (array_key_exists($setting, $this->settings)) {
+			// confirm account mode can only be configured via "enableAccountEmailConfirmation".
+			if ($setting == PWLESS_SETTING_CONFIRM_ACCOUNT_MODE) { return false; }
+
             $this->settings[$setting] = $value;
-            
             return true;
         }
         return false;
@@ -322,16 +324,13 @@ class PasswordLessManager {
      */
     function enableAccountEmailConfirmation($emailConfirmationMode, $mailConfiguration) {
         if ($emailConfirmationMode === PWLESS_CONFIRMATION_EMAIL_LAX || $emailConfirmationMode === PWLESS_CONFIRMATION_EMAIL_STRICT) {
-            if ($mailConfiguration instanceof MailConfiguration && $mailConfiguration->mailConfigurationValidForAccountConfirmation()) {
+			if ($this->setPasswordLessMailConfiguration($mailConfiguration)) {
                 $this->settings[PWLESS_SETTING_CONFIRM_ACCOUNT_MODE] = $emailConfirmationMode;
-                $this->updateMailConfiguration();
-                
-                return true;
-            } else { return false; }
+				return true;
+			} else { return false; }
         } else {
             $this->settings[PWLESS_SETTING_CONFIRM_ACCOUNT_MODE] = PWLESS_CONFIRMATION_EMAIL_NONE;
-            if ($mailConfiguration instanceof MailConfiguration) { $this->updateMailConfiguration(); }
-            return false;
+            return $this->setPasswordLessMailConfiguration($mailConfiguration);
         }
     }
     
@@ -348,10 +347,15 @@ class PasswordLessManager {
     /**
      * Updates the configuration for the mail handler and propagates it to the DbHandler
      */
-    public function updateMailConfiguration($mailConfiguration) {
-        $this->settings[PWLESS_SETTING_MAIL_CONFIGURATION] = $mailConfiguration; 
-        $this->mailHandler->updateConfiguration($mailConfiguration);
-        $this->dbHandler->setMailHandler($mailConfiguration);
+    public function setPasswordLessMailConfiguration($mailConfiguration) {
+		if ($mailConfiguration instanceof MailConfiguration && $mailConfiguration->mailConfigurationValidForAccountConfirmation()) {
+			$this->settings[PWLESS_SETTING_MAIL_CONFIGURATION] = $mailConfiguration;
+			$this->mailHandler->updateConfiguration($mailConfiguration);
+			$this->dbHandler->setMailHandler($mailConfiguration);
+			return true;
+		} else {
+			return false;
+		}
     }
     
     /**
