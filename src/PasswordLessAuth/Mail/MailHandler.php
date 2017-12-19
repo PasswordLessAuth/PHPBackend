@@ -30,7 +30,7 @@ class MailHandler {
 	 */
 	public function sendSecurityCodeEmail($email, $security_code) {
         $htmlContent = file_get_contents($this->mailConfig->getSecurityCodeEmailPath());
-        $serverContactName = $this->mailConfig->getContactEmail;
+        $serverContactName = $this->mailConfig->getContactEmail();
         $applicationName = $this->mailConfig->getServiceName();
         
         if ($htmlContent !== false) {
