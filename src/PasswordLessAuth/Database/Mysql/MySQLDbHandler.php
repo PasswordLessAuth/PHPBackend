@@ -374,7 +374,7 @@ class MySQLDbHandler implements DbHandler {
         $stmt = $this->conn->prepare("SELECT id, email, created_at, status FROM ".self::PWLESS_USERS_TABLE." WHERE id = ?");
         $stmt->bind_param("i", $user_id);
         if ($stmt->execute()) {
-            $stmt->bind_result($retrieved_id, $email, $status, $created_at);
+            $stmt->bind_result($retrieved_id, $email, $created_at, $status);
             if ($stmt->fetch()) {
                 $user = array();
                 $user[PWLESS_API_PARAM_ID] = $user_id;
