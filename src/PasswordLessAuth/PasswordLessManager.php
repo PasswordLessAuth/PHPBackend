@@ -34,6 +34,7 @@ class PasswordLessManager {
 	const PWLESS_FLOW_ACCESS_TOKEN = "access_token";
 	const PWLESS_FLOW_ADD_DEVICE = "add_device";
 	const PWLESS_FLOW_DEL_DEVICE = "del_device";
+	const PWLESS_FLOW_DEL_USER = "del_user";
 	const PWLESS_FLOW_PWLESSINFO = "pwless_info";
 	const PWLESS_FLOW_MYINFO = "my_info";
 	const PWLESS_FLOW_GET_SETTINGS = "get_settings";
@@ -72,6 +73,7 @@ class PasswordLessManager {
 		self::PWLESS_FLOW_ACCESS_TOKEN,
 		self::PWLESS_FLOW_ADD_DEVICE,
 		self::PWLESS_FLOW_DEL_DEVICE,
+		self::PWLESS_FLOW_DEL_USER,
 		self::PWLESS_FLOW_PWLESSINFO,
 		self::PWLESS_FLOW_MYINFO,
 		self::PWLESS_FLOW_GET_SETTINGS,
@@ -121,6 +123,7 @@ class PasswordLessManager {
 		// devices
         $this->routeApp->post('/pwless/devices', [$this, 'addDevice']);
         $this->routeApp->delete('/pwless/devices', [$this, 'deleteDevice']);
+        $this->routeApp->delete('/pwless/me', [$this, 'deleteUserAccount'])->add([$this, 'authenticate']);
 
 		// info
         $this->routeApp->get('/pwless/info', [$this, 'pwLessInfo']);
@@ -501,8 +504,8 @@ class PasswordLessManager {
 
 			// user already exists?
 			if ($e->getPwLessAuthErrorCode() == PWLESS_ERROR_CODE_USER_ALREADY_EXISTS) {
-				$securityCode = $this->dbHandler->securityCodeForUserWithEmail($email);
-				if ($this->mailHandler->sendSecurityCodeEmail($email, $securityCode)) {
+				$userSecurityCode = $this->dbHandler->securityCodeForUserWithEmail($email);
+				if ($this->mailHandler->sendSecurityCodeEmail($email, $userSecurityCode)) {
 					$result = $this->codeValidationRequiredResponse($security_nonce_signed);
 					$this->executeHook(self::PWLESS_FLOW_SIGNUP, false, "User already exists. Code validation needed.");
 				} else {
@@ -711,14 +714,18 @@ class PasswordLessManager {
         $security_nonce_signed = $this->securityTokenSignedIfAvailable($request_params);
         // device info?
         $device_info = "Unknown device";
-        if (isset($request_params[PWLESS_API_PARAM_DEVICE_INFO])) { $device_info = $request_params[PWLESS_API_PARAM_DEVICE_INFO]; }
+        if (isset($request_params[PWLESS_API_PARAM_DEVICE_INFO])) {
+			$device_info = $request_params[PWLESS_API_PARAM_DEVICE_INFO];
+		}
         // security code?
-        $security_code = false;
-        if (isset($request_params[PWLESS_API_PARAM_SECURITY_CODE])) { $security_code = $request_params[PWLESS_API_PARAM_SECURITY_CODE]; }
+        $providedSecurityCode = false;
+        if (isset($request_params[PWLESS_API_PARAM_SECURITY_CODE])) {
+			$providedSecurityCode = $request_params[PWLESS_API_PARAM_SECURITY_CODE];
+		}
 
 		$httpCode = 200;
 		try {
-			$userAndKeyData = $this->dbHandler->addDeviceToUser($email, $public_key, $key_type, $key_length, $device_info, $signatureAlgorithm, $security_code);
+			$userAndKeyData = $this->dbHandler->addDeviceToUser($email, $public_key, $key_type, $key_length, $device_info, $signatureAlgorithm, $providedSecurityCode);
 			$result = $this->userSuccessfullyRegisteredResponse($userAndKeyData, $security_nonce_signed);
 			$this->executeHook(self::PWLESS_FLOW_ADD_DEVICE, true, $userAndKeyData);
 		} catch (PasswordLessAuthException $e) {
@@ -733,7 +740,7 @@ class PasswordLessManager {
      * Removes a device (and associated key) for a user.
      * method DELETE
      * url /pwless/devices
-	 * params - email, key_id
+	 * params - email, key_id, security_code
      */
     function deleteDevice ($req, $res, $args) {
         // check for required params
@@ -750,13 +757,13 @@ class PasswordLessManager {
         $key_id = $request_params[PWLESS_API_PARAM_KEY_ID];
 
         // do we have a security code?
-        $security_code = false;
+        $providedSecurityCode = false;
         if (isset($request_params[PWLESS_API_PARAM_SECURITY_CODE])) {
-			$security_code = $request_params[PWLESS_API_PARAM_SECURITY_CODE];
+			$providedSecurityCode = $request_params[PWLESS_API_PARAM_SECURITY_CODE];
 			$httpCode = 200;
 			$result = null;
 			try {
-				if ($this->dbHandler->deleteUserDeviceAndKeyEntry($email, $key_id, $security_code)) {
+				if ($this->dbHandler->deleteUserDeviceAndKeyEntry($email, $key_id, $providedSecurityCode)) {
 					$result = $this->requestSucceededResponse();
 					$this->executeHook(self::PWLESS_FLOW_DEL_DEVICE, true, "Device and associated key successfully deleted");
 				} else {
@@ -772,13 +779,60 @@ class PasswordLessManager {
         	return $this->response($res, $httpCode, $result);
 		} else { // require security code
 			$httpCode = 400;
-			$securityCode = $this->db->securityCodeForUserWithEmail($email);
-            if ($this->mailHandler->sendSecurityCodeEmail($email, $securityCode)) {
+			$userSecurityCode = $this->db->securityCodeForUserWithEmail($email);
+            if ($this->mailHandler->sendSecurityCodeEmail($email, $userSecurityCode)) {
 				$this->executeHook(self::PWLESS_FLOW_DEL_DEVICE, false, "Code validation required for deleting device.");
                 $result =  $this->codeValidationRequiredResponse(false);
             } else {
 				$this->executeHook(self::PWLESS_FLOW_DEL_DEVICE, false, "Unable to delete device and key for user. Unable to send security confirmation code to the user.");
 				$result = $this->badRequestResponse(PWLESS_ERROR_CODE_UNABLE_SEND_MAIL, "Unable to delete device and key for user. Unable to send security confirmation code to the user.");
+			}
+        	return $this->response($res, $httpCode, $result);
+		}
+
+    }
+
+    /**
+     * Removes the user account, including all their settings, devices/keys and the user data.
+	 * Requires confirmation through security code.
+     * method DELETE
+     * url /pwless/me
+	 * params - security_code
+     */
+    function deleteUserAccount ($req, $res, $args) {
+		global $pwlessauth_user_id;
+		global $pwlessauth_user_key;
+
+        // do we have a security code?
+        $providedSecurityCode = false;
+        if (isset($request_params[PWLESS_API_PARAM_SECURITY_CODE])) {
+			$providedSecurityCode = $request_params[PWLESS_API_PARAM_SECURITY_CODE];
+			$httpCode = 200;
+			$result = null;
+			try {
+				if ($this->dbHandler->deleteUserDeviceAndKeyEntry($email, $pwlessauth_user_key, $providedSecurityCode)) {
+					$result = $this->requestSucceededResponse();
+					$this->executeHook(self::PWLESS_FLOW_DEL_USER, true, "Device and associated key successfully deleted");
+				} else {
+					$httpCode = 400;
+					$result = $this->badRequestResponse();
+					$this->executeHook(self::PWLESS_FLOW_DEL_USER, false, "An error happened while trying to delete the device and associated key.");
+				}
+			} catch (PasswordLessAuthException $e) {
+				$result = $e->toErrorJsonResponse();
+				$httpCode = 400;
+				$this->executeHook(self::PWLESS_FLOW_DEL_USER, false, $e);
+			}
+        	return $this->response($res, $httpCode, $result);
+		} else { // require security code
+			$httpCode = 400;
+			$userSecurityCode = $this->db->securityCodeForUserWithEmail($email);
+            if ($this->mailHandler->sendSecurityCodeEmail($email, $userSecurityCode)) {
+				$this->executeHook(self::PWLESS_FLOW_DEL_USER, false, "Code validation required for deleting user account.");
+                $result =  $this->codeValidationRequiredResponse(false);
+            } else {
+				$this->executeHook(self::PWLESS_FLOW_DEL_USER, false, "Unable to delete user account. Error sending security confirmation code to the user.");
+				$result = $this->badRequestResponse(PWLESS_ERROR_CODE_UNABLE_SEND_MAIL, "Unable to delete user account. Error sending security confirmation code to the user.");
 			}
         	return $this->response($res, $httpCode, $result);
 		}

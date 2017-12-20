@@ -38,21 +38,21 @@ class MySQLDbHandler implements DbHandler {
     /**
      * Creates a new user, and associated device and key entry with the given public key data.
      * @param String $email 	            User email
-     * @param String $key_data              User public key of the private-public key pair.
+     * @param String $keyData              User public key of the private-public key pair.
      * @param String $key_type              Type of public key (one of PWLESS_KEY_TYPE_*.
      * @param String $key_length            Length of public key (256, 384, 1024, 2048, 4096...).
      * @param String $device_info           A string identifying the device.
      * @param String $signature_algorithm   Signature algorithm used by the device.
      * @param String $mustConfirmEmail   	True if the user status should be set to 0 so the user needs to confirm their email.
      */
-    public function registerUser($email, $key_data, $key_type, $key_length, $device_info, $signature_algorithm, $mustConfirmEmail) {
+    public function registerUser($email, $keyData, $key_type, $key_length, $device_info, $signature_algorithm, $mustConfirmEmail) {
         $userData = $this->getUserByEmail($email);
         // First check if user already existed in db
         if ($userData === false) { // First Device Registration. Generate user entry, login and api tokens.
 			$status = $mustConfirmEmail ? PWLESS_ACCOUNT_UNCONFIRMED : PWLESS_ACCOUNT_CONFIRMED;
 
             // Now verify the key
-            if (!$this->verifyKeyValidity($key_data, $key_type, $key_length, $signature_algorithm)) {
+            if (!$this->verifyKeyValidity($keyData, $key_type, $key_length, $signature_algorithm)) {
 				throw new PasswordLessAuthException("Sorry, the provided key is invalid or in a unsupported format.", PWLESS_ERROR_CODE_INVALID_KEY);
             }
 
@@ -64,7 +64,7 @@ class MySQLDbHandler implements DbHandler {
             // Check for successful insertion
             if ($newUserId !== false) { // User successfully inserted: insert device/key entry.
                 // insert device/key query.
-                $newDeviceId = $this->addUserDeviceAndKeyEntry($newUserId, $key_data, $key_type, $device_info, $key_length, $signature_algorithm);
+                $newDeviceId = $this->addUserDeviceAndKeyEntry($newUserId, $keyData, $key_type, $device_info, $key_length, $signature_algorithm);
                 if ($newDeviceId !== false) { // success!
                     $this->commitTransaction();
 
@@ -73,7 +73,7 @@ class MySQLDbHandler implements DbHandler {
 					$newKeyInfo = [
 						PWLESS_API_PARAM_ID => $newDeviceId, PWLESS_API_PARAM_KEY_TYPE => $key_type,
 						PWLESS_API_PARAM_SIGNATURE_ALGORITHM => $signature_algorithm, PWLESS_API_PARAM_KEY_LENGTH => $key_length,
-						PWLESS_API_PARAM_DEVICE_INFO => $device_info, PWLESS_API_PARAM_KEY_DATA => $key_data
+						PWLESS_API_PARAM_DEVICE_INFO => $device_info, PWLESS_API_PARAM_KEY_DATA => $keyData
 					];
 					$newUserInfo = [
 						PWLESS_API_PARAM_ID => $newUserId, PWLESS_API_PARAM_EMAIL => $email, PWLESS_API_PARAM_KEY => $newKeyInfo
@@ -97,14 +97,14 @@ class MySQLDbHandler implements DbHandler {
     /**
      * Creates a new user, and associated device and key entry with the given public key data.
      * @param String $email 	            User email
-     * @param String $key_data              User public key of the private-public key pair.
+     * @param String $keyData              User public key of the private-public key pair.
      * @param String $key_type              Type of public key (one of PWLESS_KEY_TYPE_*.
      * @param String $key_length            Length of public key (256, 384, 1024, 2048, 4096...).
      * @param String $device_info           A string identifying the device.
      * @param String $signature_algorithm   Signature algorithm used by the device.
      * @param String $security_code         Security code to validate the addition of the device to the user's account.
      */
-    public function addDeviceToUser($email, $key_data, $key_type, $key_length, $device_info, $signature_algorithm, $security_code) {
+    public function addDeviceToUser($email, $keyData, $key_type, $key_length, $device_info, $signature_algorithm, $security_code) {
         $userData = $this->getUserByEmail($email);
 
         // First check if user already existed in db
@@ -112,35 +112,36 @@ class MySQLDbHandler implements DbHandler {
             $userId = $userData[PWLESS_API_PARAM_ID];
 
             // Now verify the key
-            if (!$this->verifyKeyValidity($key_data, $key_type, $key_length, $signature_algorithm)) {
+            if (!$this->verifyKeyValidity($keyData, $key_type, $key_length, $signature_algorithm)) {
 				throw new PasswordLessAuthException("Sorry, the provided key is invalid or in a unsupported format.", PWLESS_ERROR_CODE_INVALID_KEY);
             }
 
-            // Check if the security code was correct.
-            $correctSecurityCode = $this->securityCodeForUserWithId($userData[PWLESS_API_PARAM_ID]);
+			// Then, verify security code
+			$securityCodeValid = $this->checkSecurityCodeForUserWithEmail($email, $security_code);
             // Despite the result, change the security code.
             $this->updateUserSecurityCode($userId);
-            if ($security_code === $correctSecurityCode) {
-                $newDeviceId = $this->addUserDeviceAndKeyEntry($userId, $key_data, $key_type, $device_info, $key_length, $signature_algorithm);
-                if ($newDeviceId !== false) {
-					// now retrieve the key info for this user, construct a user data structure and return it.
-					$keyInfo = $this->getFullKeyInformationForUserWithId($userId, $newDeviceId);
-					$newKeyInfo = [
-						PWLESS_API_PARAM_ID => $newDeviceId, PWLESS_API_PARAM_KEY_TYPE => $key_type,
-						PWLESS_API_PARAM_SIGNATURE_ALGORITHM => $signature_algorithm, PWLESS_API_PARAM_KEY_LENGTH => $key_length,
-						PWLESS_API_PARAM_DEVICE_INFO => $device_info, PWLESS_API_PARAM_KEY_DATA => $key_data
-					];
-					$newUserInfo = [
-						PWLESS_API_PARAM_ID => $userId, PWLESS_API_PARAM_EMAIL => $email, PWLESS_API_PARAM_KEY => $newKeyInfo
-					];
 
-                    return $newUserInfo;
-                } else {
-					throw new PasswordLessAuthException("Unable to register device for user. Error adding new device key for the user.", PWLESS_ERROR_CODE_UNABLE_REGISTER_USER);
-                }
-            } else {
+			if (!$securityCodeValid) {
 				throw new PasswordLessAuthException("Unable to register device for user. Invalid security code.", PWLESS_ERROR_CODE_INVALID_SECURITY_CODE);
-            }
+			}
+
+			$newDeviceId = $this->addUserDeviceAndKeyEntry($userId, $keyData, $key_type, $device_info, $key_length, $signature_algorithm);
+			if ($newDeviceId !== false) {
+				// now retrieve the key info for this user, construct a user data structure and return it.
+				$keyInfo = $this->getFullKeyInformationForUserWithId($userId, $newDeviceId);
+				$newKeyInfo = [
+					PWLESS_API_PARAM_ID => $newDeviceId, PWLESS_API_PARAM_KEY_TYPE => $key_type,
+					PWLESS_API_PARAM_SIGNATURE_ALGORITHM => $signature_algorithm, PWLESS_API_PARAM_KEY_LENGTH => $key_length,
+					PWLESS_API_PARAM_DEVICE_INFO => $device_info, PWLESS_API_PARAM_KEY_DATA => $keyData
+				];
+				$newUserInfo = [
+					PWLESS_API_PARAM_ID => $userId, PWLESS_API_PARAM_EMAIL => $email, PWLESS_API_PARAM_KEY => $newKeyInfo
+				];
+
+				return $newUserInfo;
+			} else {
+				throw new PasswordLessAuthException("Unable to register device for user. Error adding new device key for the user.", PWLESS_ERROR_CODE_UNABLE_REGISTER_USER);
+			}
         } else {
 			throw new PasswordLessAuthException("Unable to register user. Unexpected error.", PWLESS_ERROR_CODE_UNABLE_REGISTER_USER);
         }
@@ -166,19 +167,19 @@ class MySQLDbHandler implements DbHandler {
     /**
      * Inserts a new device / key entry for a user with some information.
      * @param String $user_id               ID of the user to associate the device/key entry to.
-     * @param String $key_data              User public key of the private-public key pair.
+     * @param String $keyData              User public key of the private-public key pair.
      * @param String $key_type              Type of public key (one of PWLESS_KEY_TYPE_*.
      * @param String $key_length            Length of public key (256, 384, 1024, 2048, 4096...).
      * @param String $device_info           A string identifying the device.
      * @param String $signature_algorithm   Signature algorithm used by the device.
      */
-    function addUserDeviceAndKeyEntry($userId, $key_data, $key_type, $device_info, $key_length, $signature_algorithm) {
+    function addUserDeviceAndKeyEntry($userId, $keyData, $key_type, $device_info, $key_length, $signature_algorithm) {
         // generate tokens
         $access_token = EncryptionHandler::generate_random_token("0"); // invalid for eny user.
         $login_token = EncryptionHandler::generate_random_token($userId);
 
         $stmt = $this->conn->prepare("INSERT INTO ".self::PWLESS_DEVICES_TABLE."(user_id, key_data, login_token, access_token, key_type, device_info, key_length, signature_algorithm, created_at) values(?, ?, ?, ?, ?, ?, ?, ?, now())");
-        $stmt->bind_param("isssssis", $userId, $key_data, $login_token, $access_token, $key_type, $device_info, $key_length, $signature_algorithm);
+        $stmt->bind_param("isssssis", $userId, $keyData, $login_token, $access_token, $key_type, $device_info, $key_length, $signature_algorithm);
         $result = $stmt->execute();
         $newKeyId = $this->conn->insert_id;
         $stmt->close();
@@ -205,21 +206,20 @@ class MySQLDbHandler implements DbHandler {
 			throw new PasswordLessAuthException("Unable to delete device and key for user. I was unable to validate the identity of the user using the specified device key.", PWLESS_ERROR_CODE_IDENTITY_VALIDATION_FAILED);
 		}
 
-        // First check if we have a security code
-        $correctSecurityCode = $this->securityCodeForUserWithId($userData[PWLESS_API_PARAM_ID]);
-
+		// Then, verify security code
+		$securityCodeValid = $this->checkSecurityCodeForUserWithEmail($email, $security_code);
 		// Despite the result, change the security code.
 		$this->updateUserSecurityCode($userId);
-		// Check if the security code was correct.
-		if ($security_code === $correctSecurityCode) {
-			if ($this->deleteKeyEntry($key_id, $userId)) { return true; }
-			else {
-				throw new PasswordLessAuthException("Unable to delete device and key for user. An error happened while deleting the device and key entry.", PWLESS_ERROR_CODE_UNDEFINED_ERROR);
-			}
-		} else {
-			throw new PasswordLessAuthException("Unable to delete device and key for user. Invalid security code.", PWLESS_ERROR_CODE_INVALID_SECURITY_CODE);
+
+		if (!$securityCodeValid) {
+			throw new PasswordLessAuthException("Unable to register device for user. Invalid security code.", PWLESS_ERROR_CODE_INVALID_SECURITY_CODE);
 		}
-		return false;
+
+		if ($this->deleteKeyEntry($key_id, $userId)) { return true; }
+		else {
+			throw new PasswordLessAuthException("Unable to delete device and key for user. An error happened while deleting the device and key entry.", PWLESS_ERROR_CODE_UNDEFINED_ERROR);
+			return false;
+		}
     }
 
     /**
@@ -234,6 +234,61 @@ class MySQLDbHandler implements DbHandler {
         $stmt->close();
         return $result;
     }
+
+	/**
+	 * Delete the user account. Must delete all information from a user, including user data, devices and settings.
+	 * The PasswordLessManager hook should allow APIs to delete user data from their databases too.
+	 * Requires secure code confirmation.
+     * @param Int 		$user_id 		Id of the user.
+	 * @param String	$security_code	Security code to verify.
+	 */
+	public function deleteUserAccount($user_id, $security_code) {
+		// Then, verify security code
+		$securityCodeValid = $this->checkSecurityCodeForUserWithId($user_id, $security_code);
+		// Despite the result, change the security code.
+		$this->updateUserSecurityCode($user_id);
+
+		if (!$securityCodeValid) {
+			throw new PasswordLessAuthException("Unable to register device for user. Invalid security code.", PWLESS_ERROR_CODE_INVALID_SECURITY_CODE);
+		}
+
+		// transaction will ensure that the information is deleted atomically.
+		$this->startTransaction();
+
+		// 1. delete user settings
+		$stmt = $this->conn->prepare("DELETE FROM ".self::PWLESS_SETTINGS_TABLE." WHERE user_id = ?");
+		$stmt->bind_param("i", $user_id);
+		$result = $stmt->execute();
+        $stmt->close();
+		if (!$result) {
+			$this->rollbackTransaction();
+			return false;
+		}
+
+		// 2. delete user devices/keys
+		$stmt = $this->conn->prepare("DELETE FROM ".self::PWLESS_DEVICES_TABLE." WHERE user_id = ?");
+		$stmt->bind_param("i", $user_id);
+		$result = $stmt->execute();
+        $stmt->close();
+		if (!$result) {
+			$this->rollbackTransaction();
+			return false;
+		}
+
+		// 3. delete user account and data.
+		$stmt = $this->conn->prepare("DELETE FROM ".self::PWLESS_USERS_TABLE." WHERE id = ?");
+		$stmt->bind_param("i", $user_id);
+		$result = $stmt->execute();
+        $stmt->close();
+		if (!$result) {
+			$this->rollbackTransaction();
+			return false;
+		} else {
+			$this->commitTransaction();
+			return true;
+		}
+
+	}
 
     /**
      * Updates the user's security code. Returns the code on a successful operation, or false if an error happened.
@@ -403,12 +458,12 @@ class MySQLDbHandler implements DbHandler {
         $stmt = $this->conn->prepare("SELECT id, key_data, key_type, device_info, key_length, signature_algorithm, created_at FROM ".self::PWLESS_DEVICES_TABLE." WHERE user_id = ?");
         $stmt->bind_param("i", $user_id);
         if ($stmt->execute()) {
-            $stmt->bind_result($key_id, $key_data, $key_type, $device_info, $key_size, $signature_algorithm, $key_created_at);
+            $stmt->bind_result($key_id, $keyData, $key_type, $device_info, $key_size, $signature_algorithm, $key_created_at);
             while ($stmt->fetch()) {
                 $temp = array();
                 $temp[PWLESS_API_PARAM_ID] = $key_id;
                 $temp[PWLESS_API_PARAM_USER_ID] = $user_id;
-                $temp[PWLESS_API_PARAM_KEY_DATA] = $key_data;
+                $temp[PWLESS_API_PARAM_KEY_DATA] = $keyData;
                 $temp[PWLESS_API_PARAM_KEY_TYPE] = $key_type;
                 $temp[PWLESS_API_PARAM_DEVICE_INFO] = $device_info;
                 $temp[PWLESS_API_PARAM_KEY_LENGTH] = $key_size;
@@ -448,12 +503,12 @@ class MySQLDbHandler implements DbHandler {
         $stmt = $this->conn->prepare("SELECT id, key_data, key_type, device_info, key_length, login_token, access_token, signature_algorithm, created_at FROM ".self::PWLESS_DEVICES_TABLE." WHERE user_id = ? AND id = ?");
         $stmt->bind_param("ii", $user_id, $key_id);
         if ($stmt->execute()) {
-            $stmt->bind_result($key_id, $key_data, $key_type, $device_info, $key_size, $login_token, $access_token, $signature_algorithm, $key_created_at);
+            $stmt->bind_result($key_id, $keyData, $key_type, $device_info, $key_size, $login_token, $access_token, $signature_algorithm, $key_created_at);
             if ($stmt->fetch()) {
                 $temp = array();
                 $temp[PWLESS_API_PARAM_ID] = $key_id;
                 $temp[PWLESS_API_PARAM_USER_ID] = $user_id;
-                $temp[PWLESS_API_PARAM_KEY_DATA] = $key_data;
+                $temp[PWLESS_API_PARAM_KEY_DATA] = $keyData;
                 $temp[PWLESS_API_PARAM_KEY_TYPE] = $key_type;
                 $temp[PWLESS_API_PARAM_DEVICE_INFO] = $device_info;
                 $temp[PWLESS_API_PARAM_KEY_LENGTH] = $key_size;
@@ -537,6 +592,26 @@ class MySQLDbHandler implements DbHandler {
             return false;
         }
     }
+
+    /**
+     * Checks the security code for a user with certain email.
+     * @param String email    The email of the user to check the security code.
+	 * @return Bool true if the code is correct, false otherwise.
+     */
+    public function checkSecurityCodeForUserWithEmail($email, $code) {
+		$validCode = $this->securityCodeForUserWithEmail($email);
+		return ($code == $validCode);
+	}
+
+    /**
+     * Checks the security code for a user with certain ID.
+     * @param String email    The email of the user to check the security code.
+	 * @return Bool true if the code is correct, false otherwise.
+     */
+    public function checkSecurityCodeForUserWithId($user_id, $code) {
+		$validCode = $this->securityCodeForUserWithId($user_id);
+		return ($code == $validCode);
+	}
 
     /**
      * Validates a user API key and returns the ID of the user and the key in an array if it's valid, false otherwise.

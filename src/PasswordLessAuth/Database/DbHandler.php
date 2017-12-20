@@ -201,16 +201,45 @@ interface DbHandler {
     public function delUserSetting($user_id, $setting);
 
     /**
+     * Retrieves the security code for a user with certain ID
+     * @param Int userId    The ID of the user to retrieve the security code from.
+     */
+    public function securityCodeForUserWithId($userId);
+    /**
      * Retrieves the security code for a user with certain email
      * @param String email    The email of the user to retrieve the security code from.
      */
     public function securityCodeForUserWithEmail($email);
 
+    /**
+     * Checks the security code for a user with certain email.
+     * @param String email    The email of the user to check the security code.
+	 * @return Bool true if the code is correct, false otherwise.
+     */
+    public function checkSecurityCodeForUserWithEmail($email, $code);
+
+    /**
+     * Checks the security code for a user with certain ID.
+     * @param String email    The email of the user to check the security code.
+	 * @return Bool true if the code is correct, false otherwise.
+     */
+    public function checkSecurityCodeForUserWithId($user_id, $code);
+
 	/**
 	 * Logs the user out. Should replace the access token in the database with a random value that's guaranteed
 	 * not to allow any user to authenticate using it (i.e: don't validates user/key/hash checks).
+     * @param Int $user_id 		Id of the user.
+     * @param Int $key_id 		Id of the device/key pair.
 	 */
 	public function logoutUser($user_id, $key_id);
+
+	/**
+	 * Delete the user account. Must delete all information from a user, including user data, devices and settings.
+	 * The PasswordLessManager hook should allow APIs to delete user data from their databases too.
+	 * Requires secure code confirmation.
+     * @param Int $user_id 		Id of the user.
+	 */
+	public function deleteUserAccount($user_id);
 }
 
 ?>
