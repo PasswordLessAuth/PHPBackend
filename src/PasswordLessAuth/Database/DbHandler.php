@@ -239,7 +239,7 @@ interface DbHandler {
 	 * Requires secure code confirmation.
      * @param Int $userId 		Id of the user.
 	 */
-	public function deleteUserAccount($userId);
+	public function deleteUserAccount($userId, $securityCode);
 }
 
 ?>
