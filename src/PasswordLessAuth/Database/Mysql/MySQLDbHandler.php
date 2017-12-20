@@ -39,20 +39,20 @@ class MySQLDbHandler implements DbHandler {
      * Creates a new user, and associated device and key entry with the given public key data.
      * @param String $email 	            User email
      * @param String $keyData              User public key of the private-public key pair.
-     * @param String $key_type              Type of public key (one of PWLESS_KEY_TYPE_*.
-     * @param String $key_length            Length of public key (256, 384, 1024, 2048, 4096...).
-     * @param String $device_info           A string identifying the device.
-     * @param String $signature_algorithm   Signature algorithm used by the device.
+     * @param String $keyType              Type of public key (one of PWLESS_KEY_TYPE_*.
+     * @param String $keyLength            Length of public key (256, 384, 1024, 2048, 4096...).
+     * @param String $deviceInfo           A string identifying the device.
+     * @param String $signatureAlgorithm   Signature algorithm used by the device.
      * @param String $mustConfirmEmail   	True if the user status should be set to 0 so the user needs to confirm their email.
      */
-    public function registerUser($email, $keyData, $key_type, $key_length, $device_info, $signature_algorithm, $mustConfirmEmail) {
+    public function registerUser($email, $keyData, $keyType, $keyLength, $deviceInfo, $signatureAlgorithm, $mustConfirmEmail) {
         $userData = $this->getUserByEmail($email);
         // First check if user already existed in db
         if ($userData === false) { // First Device Registration. Generate user entry, login and api tokens.
 			$status = $mustConfirmEmail ? PWLESS_ACCOUNT_UNCONFIRMED : PWLESS_ACCOUNT_CONFIRMED;
 
             // Now verify the key
-            if (!$this->verifyKeyValidity($keyData, $key_type, $key_length, $signature_algorithm)) {
+            if (!$this->verifyKeyValidity($keyData, $keyType, $keyLength, $signatureAlgorithm)) {
 				throw new PasswordLessAuthException("Sorry, the provided key is invalid or in a unsupported format.", PWLESS_ERROR_CODE_INVALID_KEY);
             }
 
@@ -64,16 +64,16 @@ class MySQLDbHandler implements DbHandler {
             // Check for successful insertion
             if ($newUserId !== false) { // User successfully inserted: insert device/key entry.
                 // insert device/key query.
-                $newDeviceId = $this->addUserDeviceAndKeyEntry($newUserId, $keyData, $key_type, $device_info, $key_length, $signature_algorithm);
+                $newDeviceId = $this->addUserDeviceAndKeyEntry($newUserId, $keyData, $keyType, $deviceInfo, $keyLength, $signatureAlgorithm);
                 if ($newDeviceId !== false) { // success!
                     $this->commitTransaction();
 
 					// now retrieve the key info for this user, construct a user data structure and return it.
 					$keyInfo = $this->getFullKeyInformationForUserWithId($newUserId, $newDeviceId);
 					$newKeyInfo = [
-						PWLESS_API_PARAM_ID => $newDeviceId, PWLESS_API_PARAM_KEY_TYPE => $key_type,
-						PWLESS_API_PARAM_SIGNATURE_ALGORITHM => $signature_algorithm, PWLESS_API_PARAM_KEY_LENGTH => $key_length,
-						PWLESS_API_PARAM_DEVICE_INFO => $device_info, PWLESS_API_PARAM_KEY_DATA => $keyData
+						PWLESS_API_PARAM_ID => $newDeviceId, PWLESS_API_PARAM_KEY_TYPE => $keyType,
+						PWLESS_API_PARAM_SIGNATURE_ALGORITHM => $signatureAlgorithm, PWLESS_API_PARAM_KEY_LENGTH => $keyLength,
+						PWLESS_API_PARAM_DEVICE_INFO => $deviceInfo, PWLESS_API_PARAM_KEY_DATA => $keyData
 					];
 					$newUserInfo = [
 						PWLESS_API_PARAM_ID => $newUserId, PWLESS_API_PARAM_EMAIL => $email, PWLESS_API_PARAM_KEY => $newKeyInfo
@@ -98,26 +98,26 @@ class MySQLDbHandler implements DbHandler {
      * Creates a new user, and associated device and key entry with the given public key data.
      * @param String $email 	            User email
      * @param String $keyData              User public key of the private-public key pair.
-     * @param String $key_type              Type of public key (one of PWLESS_KEY_TYPE_*.
-     * @param String $key_length            Length of public key (256, 384, 1024, 2048, 4096...).
-     * @param String $device_info           A string identifying the device.
-     * @param String $signature_algorithm   Signature algorithm used by the device.
-     * @param String $security_code         Security code to validate the addition of the device to the user's account.
+     * @param String $keyType              Type of public key (one of PWLESS_KEY_TYPE_*.
+     * @param String $keyLength            Length of public key (256, 384, 1024, 2048, 4096...).
+     * @param String $deviceInfo           A string identifying the device.
+     * @param String $signatureAlgorithm   Signature algorithm used by the device.
+     * @param String $securityCode         Security code to validate the addition of the device to the user's account.
      */
-    public function addDeviceToUser($email, $keyData, $key_type, $key_length, $device_info, $signature_algorithm, $security_code) {
+    public function addDeviceToUser($email, $keyData, $keyType, $keyLength, $deviceInfo, $signatureAlgorithm, $securityCode) {
         $userData = $this->getUserByEmail($email);
 
         // First check if user already existed in db
-        if ($security_code && $userData) {  // User is valid and we have a valid security code.
+        if ($securityCode && $userData) {  // User is valid and we have a valid security code.
             $userId = $userData[PWLESS_API_PARAM_ID];
 
             // Now verify the key
-            if (!$this->verifyKeyValidity($keyData, $key_type, $key_length, $signature_algorithm)) {
+            if (!$this->verifyKeyValidity($keyData, $keyType, $keyLength, $signatureAlgorithm)) {
 				throw new PasswordLessAuthException("Sorry, the provided key is invalid or in a unsupported format.", PWLESS_ERROR_CODE_INVALID_KEY);
             }
 
 			// Then, verify security code
-			$securityCodeValid = $this->checkSecurityCodeForUserWithEmail($email, $security_code);
+			$securityCodeValid = $this->checkSecurityCodeForUserWithEmail($email, $securityCode);
             // Despite the result, change the security code.
             $this->updateUserSecurityCode($userId);
 
@@ -125,14 +125,14 @@ class MySQLDbHandler implements DbHandler {
 				throw new PasswordLessAuthException("Unable to register device for user. Invalid security code.", PWLESS_ERROR_CODE_INVALID_SECURITY_CODE);
 			}
 
-			$newDeviceId = $this->addUserDeviceAndKeyEntry($userId, $keyData, $key_type, $device_info, $key_length, $signature_algorithm);
+			$newDeviceId = $this->addUserDeviceAndKeyEntry($userId, $keyData, $keyType, $deviceInfo, $keyLength, $signatureAlgorithm);
 			if ($newDeviceId !== false) {
 				// now retrieve the key info for this user, construct a user data structure and return it.
 				$keyInfo = $this->getFullKeyInformationForUserWithId($userId, $newDeviceId);
 				$newKeyInfo = [
-					PWLESS_API_PARAM_ID => $newDeviceId, PWLESS_API_PARAM_KEY_TYPE => $key_type,
-					PWLESS_API_PARAM_SIGNATURE_ALGORITHM => $signature_algorithm, PWLESS_API_PARAM_KEY_LENGTH => $key_length,
-					PWLESS_API_PARAM_DEVICE_INFO => $device_info, PWLESS_API_PARAM_KEY_DATA => $keyData
+					PWLESS_API_PARAM_ID => $newDeviceId, PWLESS_API_PARAM_KEY_TYPE => $keyType,
+					PWLESS_API_PARAM_SIGNATURE_ALGORITHM => $signatureAlgorithm, PWLESS_API_PARAM_KEY_LENGTH => $keyLength,
+					PWLESS_API_PARAM_DEVICE_INFO => $deviceInfo, PWLESS_API_PARAM_KEY_DATA => $keyData
 				];
 				$newUserInfo = [
 					PWLESS_API_PARAM_ID => $userId, PWLESS_API_PARAM_EMAIL => $email, PWLESS_API_PARAM_KEY => $newKeyInfo
@@ -153,9 +153,9 @@ class MySQLDbHandler implements DbHandler {
      * @param Integer $status               The new status for the user to be created..
      */
     function addUserEntry($email, $status) {
-        $security_code = EncryptionHandler::generate_security_code();
+        $securityCode = EncryptionHandler::generate_security_code();
         $stmt = $this->conn->prepare("INSERT INTO ".self::PWLESS_USERS_TABLE."(email, created_at, status, security_code) values(?, now(), ?, ?)");
-        $stmt->bind_param("sis", $email, $status, $security_code);
+        $stmt->bind_param("sis", $email, $status, $securityCode);
         $result = $stmt->execute();
         $newUserId = $this->conn->insert_id;
         $stmt->close();
@@ -166,20 +166,20 @@ class MySQLDbHandler implements DbHandler {
 
     /**
      * Inserts a new device / key entry for a user with some information.
-     * @param String $user_id               ID of the user to associate the device/key entry to.
+     * @param String $userId               ID of the user to associate the device/key entry to.
      * @param String $keyData              User public key of the private-public key pair.
-     * @param String $key_type              Type of public key (one of PWLESS_KEY_TYPE_*.
-     * @param String $key_length            Length of public key (256, 384, 1024, 2048, 4096...).
-     * @param String $device_info           A string identifying the device.
-     * @param String $signature_algorithm   Signature algorithm used by the device.
+     * @param String $keyType              Type of public key (one of PWLESS_KEY_TYPE_*.
+     * @param String $keyLength            Length of public key (256, 384, 1024, 2048, 4096...).
+     * @param String $deviceInfo           A string identifying the device.
+     * @param String $signatureAlgorithm   Signature algorithm used by the device.
      */
-    function addUserDeviceAndKeyEntry($userId, $keyData, $key_type, $device_info, $key_length, $signature_algorithm) {
+    function addUserDeviceAndKeyEntry($userId, $keyData, $keyType, $deviceInfo, $keyLength, $signatureAlgorithm) {
         // generate tokens
-        $access_token = EncryptionHandler::generate_random_token("0"); // invalid for eny user.
-        $login_token = EncryptionHandler::generate_random_token($userId);
+        $accessToken = EncryptionHandler::generate_random_token("0"); // invalid for eny user.
+        $loginToken = EncryptionHandler::generate_random_token($userId);
 
         $stmt = $this->conn->prepare("INSERT INTO ".self::PWLESS_DEVICES_TABLE."(user_id, key_data, login_token, access_token, key_type, device_info, key_length, signature_algorithm, created_at) values(?, ?, ?, ?, ?, ?, ?, ?, now())");
-        $stmt->bind_param("isssssis", $userId, $keyData, $login_token, $access_token, $key_type, $device_info, $key_length, $signature_algorithm);
+        $stmt->bind_param("isssssis", $userId, $keyData, $loginToken, $accessToken, $keyType, $deviceInfo, $keyLength, $signatureAlgorithm);
         $result = $stmt->execute();
         $newKeyId = $this->conn->insert_id;
         $stmt->close();
@@ -192,22 +192,22 @@ class MySQLDbHandler implements DbHandler {
 	 * Deletes the device and associated key for the user. Requires the security code.
      * Updates the user's security code. Returns the code on a successful operation, or false if an error happened.
      * @param String $email 	            User email
-     * @param String $key_id                ID of the key to delete.
-     * @param String $security_code         Security code to validate the deletion of the device in the user's account.
+     * @param String $keyId                ID of the key to delete.
+     * @param String $securityCode         Security code to validate the deletion of the device in the user's account.
      */
-    public function deleteUserDeviceAndKeyEntry($email, $key_id, $security_code) {
+    public function deleteUserDeviceAndKeyEntry($email, $keyId, $securityCode) {
         $userData = $this->getUserByEmail($email);
         if ($userData === false) {
 			throw new PasswordLessAuthException("Unable to delete device and key for user. I was unable to validate the identity of the user using the specified device key.", PWLESS_ERROR_CODE_IDENTITY_VALIDATION_FAILED);
 		}
         $userId = $userData[PWLESS_API_PARAM_ID];
-        $keyData = $this->getFullKeyInformationForUserWithId($userId, $key_id);
+        $keyData = $this->getFullKeyInformationForUserWithId($userId, $keyId);
         if ($keyData === false) {
 			throw new PasswordLessAuthException("Unable to delete device and key for user. I was unable to validate the identity of the user using the specified device key.", PWLESS_ERROR_CODE_IDENTITY_VALIDATION_FAILED);
 		}
 
 		// Then, verify security code
-		$securityCodeValid = $this->checkSecurityCodeForUserWithEmail($email, $security_code);
+		$securityCodeValid = $this->checkSecurityCodeForUserWithEmail($email, $securityCode);
 		// Despite the result, change the security code.
 		$this->updateUserSecurityCode($userId);
 
@@ -215,7 +215,7 @@ class MySQLDbHandler implements DbHandler {
 			throw new PasswordLessAuthException("Unable to register device for user. Invalid security code.", PWLESS_ERROR_CODE_INVALID_SECURITY_CODE);
 		}
 
-		if ($this->deleteKeyEntry($key_id, $userId)) { return true; }
+		if ($this->deleteKeyEntry($keyId, $userId)) { return true; }
 		else {
 			throw new PasswordLessAuthException("Unable to delete device and key for user. An error happened while deleting the device and key entry.", PWLESS_ERROR_CODE_UNDEFINED_ERROR);
 			return false;
@@ -224,12 +224,12 @@ class MySQLDbHandler implements DbHandler {
 
     /**
      * Deletes a key entry from the devices and key table.
-     * @param String $key_id                ID of the key to delete.
-     * @param String $user_id               ID of the user associated to this device/key entry.
+     * @param String $keyId                ID of the key to delete.
+     * @param String $userId               ID of the user associated to this device/key entry.
      */
-    public function deleteKeyEntry($key_id, $user_id) {
+    public function deleteKeyEntry($keyId, $userId) {
         $stmt = $this->conn->prepare("DELETE FROM ".self::PWLESS_DEVICES_TABLE." WHERE id = ? AND user_id = ?");
-        $stmt->bind_param("ii", $key_id, $user_id);
+        $stmt->bind_param("ii", $keyId, $userId);
         $result = $stmt->execute();
         $stmt->close();
         return $result;
@@ -239,14 +239,14 @@ class MySQLDbHandler implements DbHandler {
 	 * Delete the user account. Must delete all information from a user, including user data, devices and settings.
 	 * The PasswordLessManager hook should allow APIs to delete user data from their databases too.
 	 * Requires secure code confirmation.
-     * @param Int 		$user_id 		Id of the user.
-	 * @param String	$security_code	Security code to verify.
+     * @param Int 		$userId 		Id of the user.
+	 * @param String	$securityCode	Security code to verify.
 	 */
-	public function deleteUserAccount($user_id, $security_code) {
+	public function deleteUserAccount($userId, $securityCode) {
 		// Then, verify security code
-		$securityCodeValid = $this->checkSecurityCodeForUserWithId($user_id, $security_code);
+		$securityCodeValid = $this->checkSecurityCodeForUserWithId($userId, $securityCode);
 		// Despite the result, change the security code.
-		$this->updateUserSecurityCode($user_id);
+		$this->updateUserSecurityCode($userId);
 
 		if (!$securityCodeValid) {
 			throw new PasswordLessAuthException("Unable to register device for user. Invalid security code.", PWLESS_ERROR_CODE_INVALID_SECURITY_CODE);
@@ -257,7 +257,7 @@ class MySQLDbHandler implements DbHandler {
 
 		// 1. delete user settings
 		$stmt = $this->conn->prepare("DELETE FROM ".self::PWLESS_SETTINGS_TABLE." WHERE user_id = ?");
-		$stmt->bind_param("i", $user_id);
+		$stmt->bind_param("i", $userId);
 		$result = $stmt->execute();
         $stmt->close();
 		if (!$result) {
@@ -267,7 +267,7 @@ class MySQLDbHandler implements DbHandler {
 
 		// 2. delete user devices/keys
 		$stmt = $this->conn->prepare("DELETE FROM ".self::PWLESS_DEVICES_TABLE." WHERE user_id = ?");
-		$stmt->bind_param("i", $user_id);
+		$stmt->bind_param("i", $userId);
 		$result = $stmt->execute();
         $stmt->close();
 		if (!$result) {
@@ -277,7 +277,7 @@ class MySQLDbHandler implements DbHandler {
 
 		// 3. delete user account and data.
 		$stmt = $this->conn->prepare("DELETE FROM ".self::PWLESS_USERS_TABLE." WHERE id = ?");
-		$stmt->bind_param("i", $user_id);
+		$stmt->bind_param("i", $userId);
 		$result = $stmt->execute();
         $stmt->close();
 		if (!$result) {
@@ -295,9 +295,9 @@ class MySQLDbHandler implements DbHandler {
      * @param String $userId               ID of the user to associate the device/key entry to.
      */
     function updateUserSecurityCode($userId) {
-        $security_code = EncryptionHandler::generate_security_code();
+        $securityCode = EncryptionHandler::generate_security_code();
         $stmt = $this->conn->prepare("UPDATE ".self::PWLESS_USERS_TABLE." SET security_code = ? WHERE id = ?");
-        $stmt->bind_param("si", $security_code, $userId);
+        $stmt->bind_param("si", $securityCode, $userId);
         $result = $stmt->execute();
         $stmt->close();
         return $result;
@@ -316,11 +316,10 @@ class MySQLDbHandler implements DbHandler {
 	/**
 	 * Generates a login request for the given user if it exists and its valid.
      * @param String $email 			User email
-     * @param String $security_nonce	A plain text security nonce to be signed by the server.
 	 * @return the login token for the user to sign and send a /login_validate request.
 	 */
-	public function generateLoginRequest($email, $key_id) {
-        $keyData = $this->getFullKeyInformationForUserWithEmail($email, $key_id);
+	public function generateLoginRequest($email, $keyId) {
+        $keyData = $this->getFullKeyInformationForUserWithEmail($email, $keyId);
         if ($keyData !== false) { return $keyData[PWLESS_API_PARAM_LOGIN_TOKEN]; }
 		else { return false; }
 	}
@@ -328,15 +327,15 @@ class MySQLDbHandler implements DbHandler {
     /**
      * Validates the user login after a login request.
      * @param String $email 	      User email
-     * @param String $login_signature The login key signature returned by the user to the login request.
+     * @param String $loginSignature The login key signature returned by the user to the login request.
      * @returns mixed an associative array with the user's data if the login validation succeed, false otherwise
      */
-    public function validateLogin($email, $key_id, $login_token_signed) {
+    public function validateLogin($email, $keyId, $loginTokenSigned) {
         // get user data and verify that the account has been activated or less than 7 days have passed.
         $userData = $this->getUserByEmail($email);
 
         // get user device key and validate signature.
-        $userKey = $this->getFullKeyInformationForUserWithEmail($email, $key_id);
+        $userKey = $this->getFullKeyInformationForUserWithEmail($email, $keyId);
 	    if ($userData && $userKey) { // key and user exist? get key data
 	        $keyData = $userKey[PWLESS_API_PARAM_KEY_DATA];
             $keyType = $userKey[PWLESS_API_PARAM_KEY_TYPE];
@@ -345,12 +344,12 @@ class MySQLDbHandler implements DbHandler {
 
 		    $config = new EncryptionConfiguration($keyData, $keyType, $keyLength, $signatureAlgorithm);
             $eh = new EncryptionHandler($config);
-		    if ($eh->validate_signature($userKey["login_token"], $login_token_signed)) {  // login_token valid?
+		    if ($eh->validate_signature($userKey["login_token"], $loginTokenSigned)) {  // login_token valid?
                 // change and store login key
-                $nextLoginKey = $this->newLoginKeyForUserKeyEntry($userData[PWLESS_API_PARAM_ID], $key_id);
+                $nextLoginKey = $this->newLoginKeyForUserKeyEntry($userData[PWLESS_API_PARAM_ID], $keyId);
                 if ($nextLoginKey !== false) {
 					// calculate next access token and store it
-					$nextAccessToken = $this->newAccessTokenForUserKeyEntry($userData[PWLESS_API_PARAM_ID], $key_id);
+					$nextAccessToken = $this->newAccessTokenForUserKeyEntry($userData[PWLESS_API_PARAM_ID], $keyId);
 					$expirationDate = $this->addMinutesToDate(PWLESS_TOKEN_EXPIRATION_TIME_IN_MINUTES); // 1h
 
 					// create the data that we are going to return to the user just with the interesting info.
@@ -385,32 +384,32 @@ class MySQLDbHandler implements DbHandler {
         $stmt->bind_param("s", $email);
         $stmt->execute();
         $stmt->store_result();
-        $num_rows = $stmt->num_rows;
+        $numRows = $stmt->num_rows;
         $stmt->close();
-        return $num_rows > 0;
+        return $numRows > 0;
     }
 
     /**
      * Fetching user data by email
      * @param String $email                     User email
-     * @param Bool   $include_key_information   If true, all public key information will also be retrieved.
+     * @param Bool   $includeKeyInformation   If true, all public key information will also be retrieved.
      */
-    public function getUserByEmail($email, $include_key_information = false) {
+    public function getUserByEmail($email, $includeKeyInformation = false) {
 	    if (empty($email)) return false;
         $stmt = $this->conn->prepare("SELECT id, email, created_at, status FROM ".self::PWLESS_USERS_TABLE." WHERE email = ?");
         $stmt->bind_param("s", $email);
         if ($stmt->execute()) {
-            $stmt->bind_result($user_id, $email, $created_at, $status);
+            $stmt->bind_result($userId, $email, $createdAt, $status);
             if ($stmt->fetch()) {
                 $user = array();
-                $user[PWLESS_API_PARAM_ID] = $user_id;
+                $user[PWLESS_API_PARAM_ID] = $userId;
                 $user[PWLESS_API_PARAM_EMAIL] = $email;
-                $user[PWLESS_API_PARAM_CREATED_AT] = $created_at;
+                $user[PWLESS_API_PARAM_CREATED_AT] = $createdAt;
                 $user[PWLESS_API_PARAM_STATUS] = $status;
                 $stmt->close();
                 // if we don't need to retrieve the key information, that's all.
-                if ($include_key_information) {
-                    $keysArray = $this->getKeysForUserWithId($user_id);
+                if ($includeKeyInformation) {
+                    $keysArray = $this->getKeysForUserWithId($userId);
                     $user[PWLESS_API_PARAM_KEYS] = $keysArray;
                 }
                 return $user;
@@ -422,24 +421,24 @@ class MySQLDbHandler implements DbHandler {
     /**
      * Fetching user data by email
      * @param String $email                     User email
-     * @param Bool   $include_key_information   If true, all public key information will also be retrieved.
+     * @param Bool   $includeKeyInformation   If true, all public key information will also be retrieved.
      */
-    public function getUserById($user_id, $include_key_information = false) {
-	    if (empty($user_id)) return false;
+    public function getUserById($userId, $includeKeyInformation = false) {
+	    if (empty($userId)) return false;
         $stmt = $this->conn->prepare("SELECT id, email, created_at, status FROM ".self::PWLESS_USERS_TABLE." WHERE id = ?");
-        $stmt->bind_param("i", $user_id);
+        $stmt->bind_param("i", $userId);
         if ($stmt->execute()) {
-            $stmt->bind_result($retrieved_id, $email, $created_at, $status);
+            $stmt->bind_result($retrievedId, $email, $createdAt, $status);
             if ($stmt->fetch()) {
                 $user = array();
-                $user[PWLESS_API_PARAM_ID] = $user_id;
+                $user[PWLESS_API_PARAM_ID] = $userId;
                 $user[PWLESS_API_PARAM_EMAIL] = $email;
-                $user[PWLESS_API_PARAM_CREATED_AT] = $created_at;
+                $user[PWLESS_API_PARAM_CREATED_AT] = $createdAt;
                 $user[PWLESS_API_PARAM_STATUS] = $status;
                 $stmt->close();
                 // if we don't need to retrieve the key information, that's all.
-                if ($include_key_information) {
-                    $keysArray = $this->getKeysForUserWithId($user_id);
+                if ($includeKeyInformation) {
+                    $keysArray = $this->getKeysForUserWithId($userId);
                     $user[PWLESS_API_PARAM_KEYS] = $keysArray;
                 }
                 return $user;
@@ -450,25 +449,25 @@ class MySQLDbHandler implements DbHandler {
 
     /**
      * Fetching the devices and keys for a user
-     * @param String $user_id user id primary key in user table
+     * @param String $userId user id primary key in user table
      * @returns array The access token for that user and that key id.
      */
-    public function getKeysForUserWithId($user_id) {
+    public function getKeysForUserWithId($userId) {
         $keysArray = array();
         $stmt = $this->conn->prepare("SELECT id, key_data, key_type, device_info, key_length, signature_algorithm, created_at FROM ".self::PWLESS_DEVICES_TABLE." WHERE user_id = ?");
-        $stmt->bind_param("i", $user_id);
+        $stmt->bind_param("i", $userId);
         if ($stmt->execute()) {
-            $stmt->bind_result($key_id, $keyData, $key_type, $device_info, $key_size, $signature_algorithm, $key_created_at);
+            $stmt->bind_result($keyId, $keyData, $keyType, $deviceInfo, $keySize, $signatureAlgorithm, $keyCreatedAt);
             while ($stmt->fetch()) {
                 $temp = array();
-                $temp[PWLESS_API_PARAM_ID] = $key_id;
-                $temp[PWLESS_API_PARAM_USER_ID] = $user_id;
+                $temp[PWLESS_API_PARAM_ID] = $keyId;
+                $temp[PWLESS_API_PARAM_USER_ID] = $userId;
                 $temp[PWLESS_API_PARAM_KEY_DATA] = $keyData;
-                $temp[PWLESS_API_PARAM_KEY_TYPE] = $key_type;
-                $temp[PWLESS_API_PARAM_DEVICE_INFO] = $device_info;
-                $temp[PWLESS_API_PARAM_KEY_LENGTH] = $key_size;
-                $temp[PWLESS_API_PARAM_SIGNATURE_ALGORITHM] = $signature_algorithm;
-                $temp[PWLESS_API_PARAM_CREATED_AT] = $key_created_at;
+                $temp[PWLESS_API_PARAM_KEY_TYPE] = $keyType;
+                $temp[PWLESS_API_PARAM_DEVICE_INFO] = $deviceInfo;
+                $temp[PWLESS_API_PARAM_KEY_LENGTH] = $keySize;
+                $temp[PWLESS_API_PARAM_SIGNATURE_ALGORITHM] = $signatureAlgorithm;
+                $temp[PWLESS_API_PARAM_CREATED_AT] = $keyCreatedAt;
                 $keysArray[] = $temp;
             }
         }
@@ -480,42 +479,42 @@ class MySQLDbHandler implements DbHandler {
      * Gets the key information from concrete device of a concrete user with a email and key_id. Do not use this method
      * to return information to the user, as it outputs private data.
      * @param Int $email    user email
-     * @param Int $key_id   key id primary key in user table
+     * @param Int $keyId   key id primary key in user table
      * @returns an associative array containing the key information..
      */
-    public function getFullKeyInformationForUserWithEmail($email, $key_id) {
+    public function getFullKeyInformationForUserWithEmail($email, $keyId) {
         $userData = $this->getUserByEmail($email);
         if ($userData !== false && isset($userData[PWLESS_API_PARAM_ID])) {
-            return $this->getFullKeyInformationForUserWithId($userData[PWLESS_API_PARAM_ID], $key_id);
+            return $this->getFullKeyInformationForUserWithId($userData[PWLESS_API_PARAM_ID], $keyId);
         }
         return false;
     }
     /**
      * Gets the key information from concrete device of a concrete user with a user_id and key_id. Do not use this method
      * to return information to the user, as it outputs private data.
-     * @param Int $user_id  user id primary key in user table
-     * @param Int $key_id   key id primary key in user table
+     * @param Int $userId  user id primary key in user table
+     * @param Int $keyId   key id primary key in user table
      * @returns an associative array containing the key information..
      */
-    public function getFullKeyInformationForUserWithId($user_id, $key_id) {
-        if (!$user_id || !$key_id) { return false; }
+    public function getFullKeyInformationForUserWithId($userId, $keyId) {
+        if (!$userId || !$keyId) { return false; }
 
         $stmt = $this->conn->prepare("SELECT id, key_data, key_type, device_info, key_length, login_token, access_token, signature_algorithm, created_at FROM ".self::PWLESS_DEVICES_TABLE." WHERE user_id = ? AND id = ?");
-        $stmt->bind_param("ii", $user_id, $key_id);
+        $stmt->bind_param("ii", $userId, $keyId);
         if ($stmt->execute()) {
-            $stmt->bind_result($key_id, $keyData, $key_type, $device_info, $key_size, $login_token, $access_token, $signature_algorithm, $key_created_at);
+            $stmt->bind_result($keyId, $keyData, $keyType, $deviceInfo, $keySize, $loginToken, $accessToken, $signatureAlgorithm, $keyCreatedAt);
             if ($stmt->fetch()) {
                 $temp = array();
-                $temp[PWLESS_API_PARAM_ID] = $key_id;
-                $temp[PWLESS_API_PARAM_USER_ID] = $user_id;
+                $temp[PWLESS_API_PARAM_ID] = $keyId;
+                $temp[PWLESS_API_PARAM_USER_ID] = $userId;
                 $temp[PWLESS_API_PARAM_KEY_DATA] = $keyData;
-                $temp[PWLESS_API_PARAM_KEY_TYPE] = $key_type;
-                $temp[PWLESS_API_PARAM_DEVICE_INFO] = $device_info;
-                $temp[PWLESS_API_PARAM_KEY_LENGTH] = $key_size;
-                $temp[PWLESS_API_PARAM_LOGIN_TOKEN] = $login_token;
-                $temp[PWLESS_API_PARAM_ACCESS_TOKEN] = $access_token;
-                $temp[PWLESS_API_PARAM_SIGNATURE_ALGORITHM] = $signature_algorithm;
-                $temp[PWLESS_API_PARAM_REGISTERED] = $key_created_at;
+                $temp[PWLESS_API_PARAM_KEY_TYPE] = $keyType;
+                $temp[PWLESS_API_PARAM_DEVICE_INFO] = $deviceInfo;
+                $temp[PWLESS_API_PARAM_KEY_LENGTH] = $keySize;
+                $temp[PWLESS_API_PARAM_LOGIN_TOKEN] = $loginToken;
+                $temp[PWLESS_API_PARAM_ACCESS_TOKEN] = $accessToken;
+                $temp[PWLESS_API_PARAM_SIGNATURE_ALGORITHM] = $signatureAlgorithm;
+                $temp[PWLESS_API_PARAM_REGISTERED] = $keyCreatedAt;
                 return $temp;
             }
         }
@@ -524,17 +523,17 @@ class MySQLDbHandler implements DbHandler {
 
     /**
      * Fetching user api key
-     * @param String $user_id user id primary key in user table
-     * @param String $key_id  key id primary key in user table
+     * @param String $userId user id primary key in user table
+     * @param String $keyId  key id primary key in user table
      * @returns String The access token for that user and that key id.
      */
-    public function getAccessTokenById($user_id, $key_id) {
+    public function getAccessTokenById($userId, $keyId) {
         $stmt = $this->conn->prepare("SELECT access_token FROM ".self::PWLESS_DEVICES_TABLE." WHERE id = ? AND user_id = ?");
-        $stmt->bind_param("ii", $key_id, $user_id);
+        $stmt->bind_param("ii", $keyId, $userId);
         if ($stmt->execute()) {
-            $stmt->bind_result($access_token);
+            $stmt->bind_result($accessToken);
             $stmt->close();
-            return $access_token;
+            return $accessToken;
         } else {
             return false;
         }
@@ -542,16 +541,16 @@ class MySQLDbHandler implements DbHandler {
 
     /**
      * Fetching user id by access token
-     * @param String $access_token user access token
+     * @param String $accessToken user access token
      */
-    public function getUserIdForAccessToken($access_token) {
+    public function getUserIdForAccessToken($accessToken) {
         $stmt = $this->conn->prepare("SELECT user_id FROM ".self::PWLESS_USERS_TABLE." WHERE access_token = ?");
-        $stmt->bind_param("s", $access_token);
+        $stmt->bind_param("s", $accessToken);
         if ($stmt->execute()) {
-            $stmt->bind_result($user_id);
+            $stmt->bind_result($userId);
             $stmt->fetch();
             $stmt->close();
-            return $user_id;
+            return $userId;
         } else {
             return false;
         }
@@ -608,8 +607,8 @@ class MySQLDbHandler implements DbHandler {
      * @param String email    The email of the user to check the security code.
 	 * @return Bool true if the code is correct, false otherwise.
      */
-    public function checkSecurityCodeForUserWithId($user_id, $code) {
-		$validCode = $this->securityCodeForUserWithId($user_id);
+    public function checkSecurityCodeForUserWithId($userId, $code) {
+		$validCode = $this->securityCodeForUserWithId($userId);
 		return ($code == $validCode);
 	}
 
@@ -617,25 +616,25 @@ class MySQLDbHandler implements DbHandler {
      * Validates a user API key and returns the ID of the user and the key in an array if it's valid, false otherwise.
 	 * AN API key will validate if it's valid for a user with status = confirmed or status = unconfirmed created less than a week ago.
 	 * The array will contain in [0] the user id and in [1] the device/key id.
-     * @param String $access_token user api key
+     * @param String $accessToken user api key
      * @return array An array with the id (0) and key (1) of the user if API key was valid, false otherwise.
      */
-    public function userIdAndDeviceKeyForAccessToken($access_token) {
+    public function userIdAndDeviceKeyForAccessToken($accessToken) {
         $stmt = $this->conn->prepare("SELECT ".self::PWLESS_USERS_TABLE.".id, ".self::PWLESS_USERS_TABLE.".created_at, ".self::PWLESS_USERS_TABLE.".status, ".self::PWLESS_DEVICES_TABLE.".id from ".self::PWLESS_USERS_TABLE.", ".self::PWLESS_DEVICES_TABLE." WHERE ".self::PWLESS_USERS_TABLE.".id = ".self::PWLESS_DEVICES_TABLE.".user_id AND ".self::PWLESS_DEVICES_TABLE.".access_token = ?");
-        $stmt->bind_param("s", $access_token);
+        $stmt->bind_param("s", $accessToken);
         if ($stmt->execute()) {
-            $stmt->bind_result($user_id, $created_at, $status, $key_id);
+            $stmt->bind_result($userId, $createdAt, $status, $keyId);
             if ($stmt->fetch()) {
                 $stmt->close();
                 // check status.
-				if (EncryptionHandler::cryptographic_token_valid_for($access_token, $user_id, $key_id)) {
+				if (EncryptionHandler::cryptographic_token_valid_for($accessToken, $userId, $keyId)) {
 					if ($status == PWLESS_ACCOUNT_CONFIRMED) { // Account confirmed, API key valid. Return user id and proceed.
-						return array($user_id, $key_id);
+						return array($userId, $keyId);
 					} else if ($status == PWLESS_ACCOUNT_UNCONFIRMED) { // Account unconfirmed, let the user use the backend if less than a week has passed.
-						$creation_timestamp = strtotime($created_at);
-						$current_timestamp = time();
-						if (($current_timestamp - $creation_timestamp) < PWLESS_UNCONFIRMED_ACCOUNT_USE_TIME) { // unconfirmed account use time not expired yet.
-							return array($user_id, $key_id);
+						$creationTimestamp = strtotime($createdAt);
+						$currentTimestamp = time();
+						if (($currentTimestamp - $creationTimestamp) < PWLESS_UNCONFIRMED_ACCOUNT_USE_TIME) { // unconfirmed account use time not expired yet.
+							return array($userId, $keyId);
 						} // else will return false.
 					} // else will return false.
 				} else { return false; }
@@ -649,15 +648,15 @@ class MySQLDbHandler implements DbHandler {
 	 * @param String $email	email of the user
 	 * @returns the newly generated login token or false if it couldn't be generated and inserted in the database.
 	 */
-	public function newLoginKeyForUserKeyEntry($user_id, $key_id) {
-		$new_login_token = EncryptionHandler::generate_random_token();
+	public function newLoginKeyForUserKeyEntry($userId, $keyId) {
+		$newLoginToken = EncryptionHandler::generate_random_token();
         $stmt = $this->conn->prepare("UPDATE ".self::PWLESS_DEVICES_TABLE." SET login_token = ? WHERE id = ? AND user_id = ?");
-        $stmt->bind_param("sii", $new_login_token, $user_id, $key_id);
+        $stmt->bind_param("sii", $newLoginToken, $userId, $keyId);
         $result = $stmt->execute();
         $stmt->close();
 
 	    if ($result === false) { return false; }
-	    else { return $new_login_token; }
+	    else { return $newLoginToken; }
 	}
 
 	/**
@@ -666,25 +665,25 @@ class MySQLDbHandler implements DbHandler {
 	 * @param Int device_id	ID of the device/key.
 	 * @return String access_token the updated access token.
 	 */
-	function newAccessTokenForUserKeyEntry($user_id, $key_id) {
-		$new_access_token = EncryptionHandler::generate_cryptographic_token($user_id, $key_id);
+	function newAccessTokenForUserKeyEntry($userId, $keyId) {
+		$newAccessToken = EncryptionHandler::generate_cryptographic_token($userId, $keyId);
         $stmt = $this->conn->prepare("UPDATE ".self::PWLESS_DEVICES_TABLE." SET access_token = ? WHERE id = ? AND user_id = ?");
-        $stmt->bind_param("sii", $new_access_token, $key_id, $user_id);
+        $stmt->bind_param("sii", $newAccessToken, $keyId, $userId);
         $result = $stmt->execute();
         $stmt->close();
 
 	    if ($result === false) { return false; }
-	    else { return $new_access_token; }
+	    else { return $newAccessToken; }
 	}
 
 	/**
 	 * Sets the status of a user identified with an id to a given value.
-	 * @param Int $user_id	ID of the user
+	 * @param Int $userId	ID of the user
 	 * @param Int $status 	new status to set.
 	 */
-	public function setUserStatus($user_id, $status) {
+	public function setUserStatus($userId, $status) {
 		$stmt = $this->conn->prepare("UPDATE ".self::PWLESS_USERS_TABLE." SET status = ? where id = ?");
-		$stmt->bind_param("ii", $status, $user_id);
+		$stmt->bind_param("ii", $status, $userId);
         $result = $stmt->execute();
         $stmt->close();
 		return $result;
@@ -694,10 +693,10 @@ class MySQLDbHandler implements DbHandler {
 	 * Logs the user out. Should replace the access token in the database with a random value that's guaranteed
 	 * not to allow any user to authenticate using it (i.e: don't validates user/key/hash checks).
 	 */
-	public function logoutUser($user_id, $key_id) {
-		$access_token = EncryptionHandler::generate_random_token("0"); // invalid for any user.
+	public function logoutUser($userId, $keyId) {
+		$accessToken = EncryptionHandler::generate_random_token("0"); // invalid for any user.
         $stmt = $this->conn->prepare("UPDATE ".self::PWLESS_DEVICES_TABLE." SET access_token = ? WHERE id = ? AND user_id = ?");
-        $stmt->bind_param("sii", $access_token, $user_id, $key_id);
+        $stmt->bind_param("sii", $accessToken, $userId, $keyId);
         $result = $stmt->execute();
         $stmt->close();
 		return $result;
@@ -707,20 +706,20 @@ class MySQLDbHandler implements DbHandler {
 
 	 /**
      * Gets all user settings for a concrete user.
-     * @param Int $user_id 		Id of the user.
+     * @param Int $userId 		Id of the user.
      */
-    public function getUserSettings($user_id) {
-	    if (empty($user_id)) return false;
+    public function getUserSettings($userId) {
+	    if (empty($userId)) return false;
 
 		$stmt = $this->conn->prepare("SELECT user_id, setting, value FROM ".self::PWLESS_SETTINGS_TABLE." WHERE user_id = ?");
-		$stmt->bind_param("i", $user_id);
+		$stmt->bind_param("i", $userId);
 
 		$settings = array();
 		if ($stmt->execute()) {
-            $stmt->bind_result($user_id, $setting, $value);
+            $stmt->bind_result($userId, $setting, $value);
             while ($stmt->fetch()) {
                 $temp = array();
-                $temp["user_id"] = $user_id;
+                $temp["user_id"] = $userId;
                 $temp["setting"] = $setting;
                 $temp["value"] = $value;
                 $settings[] = $temp;
@@ -731,19 +730,19 @@ class MySQLDbHandler implements DbHandler {
 
 	/**
      * Gets the user setting for a concrete user_id and a setting name.
-     * @param Int $user_id 		Id of the user.
+     * @param Int $userId 		Id of the user.
      * @param String $setting 	Name of the setting to retrieve.
      */
-    public function getUserSetting($user_id, $setting) {
-	    if (empty($user_id)) return false;
+    public function getUserSetting($userId, $setting) {
+	    if (empty($userId)) return false;
 		$stmt = $this->conn->prepare("SELECT user_id, setting, value FROM ".self::PWLESS_SETTINGS_TABLE." WHERE user_id = ? AND setting = ?");
-		$stmt->bind_param("is", $user_id, $setting);
+		$stmt->bind_param("is", $userId, $setting);
 
 		if ($stmt->execute()) {
-            $stmt->bind_result($user_id, $setting, $value);
+            $stmt->bind_result($userId, $setting, $value);
             if ($stmt->fetch()) {
                 $settingObject = array();
-                $settingObject["user_id"] = $user_id;
+                $settingObject["user_id"] = $userId;
                 $settingObject["setting"] = $setting;
                 $settingObject["value"] = $value;
                 $stmt->close();
@@ -756,15 +755,15 @@ class MySQLDbHandler implements DbHandler {
 	/**
      * Sets the user setting for a concrete user_id and a setting name.
 	 * If the setting exists, it will overwrite it. Otherwise, the setting will be created.
-     * @param Int $user_id 		Id of the user.
+     * @param Int $userId 		Id of the user.
      * @param String $setting 	Name of the setting to retrieve.
 	 * @param String value		Value for the setting.
      */
-    public function setUserSetting($user_id, $setting, $value) {
-	    if (empty($user_id) || empty($setting)) return false;
+    public function setUserSetting($userId, $setting, $value) {
+	    if (empty($userId) || empty($setting)) return false;
 
 		$stmt = $this->conn->prepare("INSERT INTO ".self::PWLESS_SETTINGS_TABLE."(user_id, setting, value) values(?, ?, ?) ON DUPLICATE KEY UPDATE value = ?");
-        $stmt->bind_param("isss", $user_id, $setting, $value, $value);
+        $stmt->bind_param("isss", $userId, $setting, $value, $value);
         $result = $stmt->execute();
         $newSettingId = $this->conn->insert_id;
         $stmt->close();
@@ -775,14 +774,14 @@ class MySQLDbHandler implements DbHandler {
 
 	/**
      * Deletes the user setting for a concrete user_id and a setting name, if exists.
-     * @param Int $user_id 		Id of the user.
+     * @param Int $userId 		Id of the user.
      * @param String $setting 	Name of the setting to retrieve.
      */
-    public function delUserSetting($user_id, $setting) {
-	    if (empty($user_id) || empty($setting)) return false;
+    public function delUserSetting($userId, $setting) {
+	    if (empty($userId) || empty($setting)) return false;
 
 		$stmt = $this->conn->prepare("DELETE FROM ".self::PWLESS_SETTINGS_TABLE." WHERE user_id = ? AND setting = ?");
-		$stmt->bind_param("is", $user_id, $setting);
+		$stmt->bind_param("is", $userId, $setting);
 
 		$result = $stmt->execute();
         $stmt->close();

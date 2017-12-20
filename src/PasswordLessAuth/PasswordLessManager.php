@@ -375,20 +375,20 @@ class PasswordLessManager {
         $headers = $req->getHeaders();
 
         // Verifying Authorization Header
-        $request_params = $this->getParametersFromRequest($req);
+        $requestParams = $this->getParametersFromRequest($req);
         $authenticated = false;
 
-        if (isset($request_params['Authorization'])) {
-            $access_token = $request_params['Authorization'];
-            $authenticated = $this->authenticateWithAccessToken($access_token);
+        if (isset($requestParams['Authorization'])) {
+            $accessToken = $requestParams['Authorization'];
+            $authenticated = $this->authenticateWithAccessToken($accessToken);
         } else if (isset($headers['Authorization'])) {
             // get the access token
-            $access_token = $headers['Authorization'];
-            $authenticated = $this->authenticateWithAccessToken($access_token);
+            $accessToken = $headers['Authorization'];
+            $authenticated = $this->authenticateWithAccessToken($accessToken);
         } else if (isset($headersApache['Authorization'])) {
             // get the access token
-            $access_token = $headersApache['Authorization'];
-            $authenticated = $this->authenticateWithAccessToken($access_token);
+            $accessToken = $headersApache['Authorization'];
+            $authenticated = $this->authenticateWithAccessToken($accessToken);
         }
 
         if ($authenticated) {
@@ -402,17 +402,17 @@ class PasswordLessManager {
         }
     }
 
-    function authenticateWithAccessToken($access_token) {
+    function authenticateWithAccessToken($accessToken) {
         // validating api key
-        $user_id_and_key = $this->dbHandler->userIdAndDeviceKeyForAccessToken($access_token);
-        if ($user_id_and_key === false) {
+        $userIdAndKey = $this->dbHandler->userIdAndDeviceKeyForAccessToken($accessToken);
+        if ($userIdAndKey === false) {
             return false;
         } else {
             // get user primary key id
             global $pwlessauth_user_id;
             global $pwlessauth_user_key;
-            $pwlessauth_user_id = $user_id_and_key[0];
-			$pwlessauth_user_key = $user_id_and_key[1];
+            $pwlessauth_user_id = $userIdAndKey[0];
+			$pwlessauth_user_key = $userIdAndKey[1];
 			// set user data
 			global $pwlessauth_user_info;
 			$pwlessauth_user_info = $this->dbHandler->getUserById($pwlessauth_user_id);
@@ -461,8 +461,8 @@ class PasswordLessManager {
      */
     function signup ($req, $res, $args) {
         // check for required params
-        $request_params = $this->getParametersFromRequest($req);
-        if ($missingParams = $this->missingParametersForRequest($res, $request_params,
+        $requestParams = $this->getParametersFromRequest($req);
+        if ($missingParams = $this->missingParametersForRequest($res, $requestParams,
         array(PWLESS_API_PARAM_EMAIL, PWLESS_API_PARAM_KEY_DATA, PWLESS_API_PARAM_KEY_TYPE, PWLESS_API_PARAM_KEY_LENGTH, PWLESS_API_PARAM_SIGNATURE_ALGORITHM))) {
             $result = $this->missingParametersResponse($missingParams);
 			$this->executeHook(self::PWLESS_FLOW_SIGNUP, false, "Missing parameters for request");
@@ -470,11 +470,11 @@ class PasswordLessManager {
         }
 
         // mandatory params
-        $email = $request_params[PWLESS_API_PARAM_EMAIL];
-        $public_key = $request_params[PWLESS_API_PARAM_KEY_DATA];
-        $key_type = $request_params[PWLESS_API_PARAM_KEY_TYPE];
-        $key_length = $request_params[PWLESS_API_PARAM_KEY_LENGTH];
-        $signatureAlgorithm = $request_params[PWLESS_API_PARAM_SIGNATURE_ALGORITHM];
+        $email = $requestParams[PWLESS_API_PARAM_EMAIL];
+        $publicKey = $requestParams[PWLESS_API_PARAM_KEY_DATA];
+        $keyType = $requestParams[PWLESS_API_PARAM_KEY_TYPE];
+        $keyLength = $requestParams[PWLESS_API_PARAM_KEY_LENGTH];
+        $signatureAlgorithm = $requestParams[PWLESS_API_PARAM_SIGNATURE_ALGORITHM];
         
         // validating email address
         if (!PasswordLessUtils::validateEmail($email)) {
@@ -485,10 +485,10 @@ class PasswordLessManager {
 
         // optional parameters
         // if server security nonce is enabled and we receive a security nonce, sign it.
-        $security_nonce_signed = $this->securityTokenSignedIfAvailable($request_params);
+        $securityNonceSigned = $this->securityTokenSignedIfAvailable($requestParams);
         // device info?
-        $device_info = "Unknown device";
-        if (isset($request_params[PWLESS_API_PARAM_DEVICE_INFO])) { $device_info = $request_params[PWLESS_API_PARAM_DEVICE_INFO]; }
+        $deviceInfo = "Unknown device";
+        if (isset($requestParams[PWLESS_API_PARAM_DEVICE_INFO])) { $deviceInfo = $requestParams[PWLESS_API_PARAM_DEVICE_INFO]; }
 
 		// must confirm email?
 		$mustConfirmEmail = $this->mustConfirmAccountByEmail();
@@ -496,8 +496,8 @@ class PasswordLessManager {
 		$httpCode = 200;
 		$result = null;
 		try {
-        	$registeredUser = $this->dbHandler->registerUser($email, $public_key, $key_type, $key_length, $device_info, $signatureAlgorithm, $security_nonce_signed, $mustConfirmEmail);
-			$result = $this->userSuccessfullyRegisteredResponse($registeredUser, $security_nonce_signed);
+        	$registeredUser = $this->dbHandler->registerUser($email, $publicKey, $keyType, $keyLength, $deviceInfo, $signatureAlgorithm, $securityNonceSigned, $mustConfirmEmail);
+			$result = $this->userSuccessfullyRegisteredResponse($registeredUser, $securityNonceSigned);
 			$this->executeHook(self::PWLESS_FLOW_SIGNUP, true, $registeredUser);
 		} catch (PasswordLessAuthException $e) {
 			$httpCode = 400;
@@ -506,7 +506,7 @@ class PasswordLessManager {
 			if ($e->getPwLessAuthErrorCode() == PWLESS_ERROR_CODE_USER_ALREADY_EXISTS) {
 				$userSecurityCode = $this->dbHandler->securityCodeForUserWithEmail($email);
 				if ($this->mailHandler->sendSecurityCodeEmail($email, $userSecurityCode)) {
-					$result = $this->codeValidationRequiredResponse($security_nonce_signed);
+					$result = $this->codeValidationRequiredResponse($securityNonceSigned);
 					$this->executeHook(self::PWLESS_FLOW_SIGNUP, false, "User already exists. Code validation needed.");
 				} else {
 					$result = $this->badRequestResponse(PWLESS_ERROR_CODE_UNABLE_SEND_MAIL, "Error sending security code email for device registration.");
@@ -528,15 +528,15 @@ class PasswordLessManager {
      */
     function confirm($req, $res, $args) {
         // check for required params
-        $request_params = $this->getParametersFromRequest($req);
-        if ($missingParams = $this->missingParametersForRequest($res, $request_params, array(PWLESS_API_PARAM_CODE))) {
+        $requestParams = $this->getParametersFromRequest($req);
+        if ($missingParams = $this->missingParametersForRequest($res, $requestParams, array(PWLESS_API_PARAM_CODE))) {
             $result = $this->missingParametersResponse($missingParams);
 			$this->executeHook(self::PWLESS_FLOW_CONFIRM, false, "Missing parameters for request");
 			return $this->response($res, 400, $result);
         }
 
         // mandatory params
-        $code = $request_params[PWLESS_API_PARAM_CODE];
+        $code = $requestParams[PWLESS_API_PARAM_CODE];
 
         // extract code and check validity
         $email = $this->publicEncryptionHandler()->decrypt_message($code);
@@ -563,18 +563,18 @@ class PasswordLessManager {
      */
     function login ($req, $res, $args) {
         // check for required params
-        $request_params = $this->getParametersFromRequest($req);
-        if ($missingParams = $this->missingParametersForRequest($res, $request_params, array(PWLESS_API_PARAM_EMAIL, PWLESS_API_PARAM_KEY_ID))) {
+        $requestParams = $this->getParametersFromRequest($req);
+        if ($missingParams = $this->missingParametersForRequest($res, $requestParams, array(PWLESS_API_PARAM_EMAIL, PWLESS_API_PARAM_KEY_ID))) {
             $result = $this->missingParametersResponse($missingParams);
 			$this->executeHook(self::PWLESS_FLOW_LOGIN, false, "Missing parameters for request");
 			return $this->response($res, 400, $result);
         }
 
         // mandatory params
-        $email = $request_params[PWLESS_API_PARAM_EMAIL];
-        $key_id = $request_params[PWLESS_API_PARAM_KEY_ID];
+        $email = $requestParams[PWLESS_API_PARAM_EMAIL];
+        $keyId = $requestParams[PWLESS_API_PARAM_KEY_ID];
         // optional security nonce
-        $security_nonce_signed = $this->securityTokenSignedIfAvailable($request_params);
+        $securityNonceSigned = $this->securityTokenSignedIfAvailable($requestParams);
 
         // check user status
         if (!$this->dbHandler->userStatusIsValid($email, $this->getValueForSetting(PWLESS_SETTING_CONFIRM_ACCOUNT_MODE))) {
@@ -584,7 +584,7 @@ class PasswordLessManager {
 		}
 
         // generate login request
-        $result = $this->dbHandler->generateLoginRequest($email, $key_id);
+        $result = $this->dbHandler->generateLoginRequest($email, $keyId);
         $data = array();
         if ($result === false) {
             // unknown user.
@@ -597,7 +597,7 @@ class PasswordLessManager {
             $data[PWLESS_API_PARAM_SUCCESS] = true;
             $data[PWLESS_API_PARAM_CODE] = PWLESS_ERROR_CODE_SUCCESS;
             $data[PWLESS_API_PARAM_LOGIN_TOKEN] = $result;
-            if ($security_nonce_signed !== false) { $data[PWLESS_API_PARAM_SEC_NONCE_SIGNED] = $security_nonce_signed; }
+            if ($securityNonceSigned !== false) { $data[PWLESS_API_PARAM_SEC_NONCE_SIGNED] = $securityNonceSigned; }
 			$this->executeHook(self::PWLESS_FLOW_LOGIN, true, $result);
             return $this->response($res, 200, $data);
         }
@@ -611,16 +611,16 @@ class PasswordLessManager {
      */
     function accessToken($req, $res, $args) {
         // verify required authentication_type
-        $request_params = $this->getParametersFromRequest($req);
-        if ($missingParams = $this->missingParametersForRequest($res, $request_params, array(PWLESS_API_PARAM_EMAIL, PWLESS_API_PARAM_KEY_ID, PWLESS_API_PARAM_LOGIN_TOKEN_SIGNED))) {
+        $requestParams = $this->getParametersFromRequest($req);
+        if ($missingParams = $this->missingParametersForRequest($res, $requestParams, array(PWLESS_API_PARAM_EMAIL, PWLESS_API_PARAM_KEY_ID, PWLESS_API_PARAM_LOGIN_TOKEN_SIGNED))) {
             $result = $this->missingParametersResponse($missingParams);
 			$this->executeHook(self::PWLESS_FLOW_ACCESS_TOKEN, false, "Missing parameters for request");
 			return $this->response($res, 400, $result);
         }
 
-        $email = $request_params[PWLESS_API_PARAM_EMAIL];
-        $key_id = $request_params[PWLESS_API_PARAM_KEY_ID];
-        $login_token_signed = $request_params[PWLESS_API_PARAM_LOGIN_TOKEN_SIGNED];
+        $email = $requestParams[PWLESS_API_PARAM_EMAIL];
+        $keyId = $requestParams[PWLESS_API_PARAM_KEY_ID];
+        $loginTokenSigned = $requestParams[PWLESS_API_PARAM_LOGIN_TOKEN_SIGNED];
 
         // check user status
         if (!$this->dbHandler->userStatusIsValid($email, $this->getValueForSetting(PWLESS_SETTING_CONFIRM_ACCOUNT_MODE))) {
@@ -632,7 +632,7 @@ class PasswordLessManager {
 		$httpCode = 200;
 		$result = null;
 		try {
-			$result = $this->dbHandler->validateLogin($email, $key_id, $login_token_signed, $this->getValueForSetting(PWLESS_SETTING_AUTHENTICATION_MODE));
+			$result = $this->dbHandler->validateLogin($email, $keyId, $loginTokenSigned, $this->getValueForSetting(PWLESS_SETTING_AUTHENTICATION_MODE));
 			$result[PWLESS_API_PARAM_SUCCESS] = true;
 			$result[PWLESS_API_PARAM_CODE] = PWLESS_ERROR_CODE_SUCCESS;
 			$result[PWLESS_API_PARAM_MESSAGE] = "Access granted.";
@@ -687,8 +687,8 @@ class PasswordLessManager {
      */
     function addDevice ($req, $res, $args) {
         // check for required params
-        $request_params = $this->getParametersFromRequest($req);
-        if ($missingParams = $this->missingParametersForRequest($res, $request_params,
+        $requestParams = $this->getParametersFromRequest($req);
+        if ($missingParams = $this->missingParametersForRequest($res, $requestParams,
         array(PWLESS_API_PARAM_EMAIL, PWLESS_API_PARAM_KEY_DATA, PWLESS_API_PARAM_KEY_TYPE, PWLESS_API_PARAM_KEY_LENGTH, PWLESS_API_PARAM_SIGNATURE_ALGORITHM))) {
             $result = $this->missingParametersResponse($missingParams);
 			$this->executeHook(self::PWLESS_FLOW_ADD_DEVICE, false, "Missing parameters for request");
@@ -696,11 +696,11 @@ class PasswordLessManager {
         }
 
         // mandatory params
-        $email = $request_params[PWLESS_API_PARAM_EMAIL];
-        $public_key = $request_params[PWLESS_API_PARAM_KEY_DATA];
-        $key_type = $request_params[PWLESS_API_PARAM_KEY_TYPE];
-        $key_length = $request_params[PWLESS_API_PARAM_KEY_LENGTH];
-        $signatureAlgorithm = $request_params[PWLESS_API_PARAM_SIGNATURE_ALGORITHM];
+        $email = $requestParams[PWLESS_API_PARAM_EMAIL];
+        $publicKey = $requestParams[PWLESS_API_PARAM_KEY_DATA];
+        $keyType = $requestParams[PWLESS_API_PARAM_KEY_TYPE];
+        $keyLength = $requestParams[PWLESS_API_PARAM_KEY_LENGTH];
+        $signatureAlgorithm = $requestParams[PWLESS_API_PARAM_SIGNATURE_ALGORITHM];
 
         // validating email address
         if (!PasswordLessUtils::validateEmail($email)) {
@@ -711,22 +711,22 @@ class PasswordLessManager {
 
         // optional parameters
         // if server security nonce is enabled and we receive a security nonce, sign it.
-        $security_nonce_signed = $this->securityTokenSignedIfAvailable($request_params);
+        $securityNonceSigned = $this->securityTokenSignedIfAvailable($requestParams);
         // device info?
-        $device_info = "Unknown device";
-        if (isset($request_params[PWLESS_API_PARAM_DEVICE_INFO])) {
-			$device_info = $request_params[PWLESS_API_PARAM_DEVICE_INFO];
+        $deviceInfo = "Unknown device";
+        if (isset($requestParams[PWLESS_API_PARAM_DEVICE_INFO])) {
+			$deviceInfo = $requestParams[PWLESS_API_PARAM_DEVICE_INFO];
 		}
         // security code?
         $providedSecurityCode = false;
-        if (isset($request_params[PWLESS_API_PARAM_SECURITY_CODE])) {
-			$providedSecurityCode = $request_params[PWLESS_API_PARAM_SECURITY_CODE];
+        if (isset($requestParams[PWLESS_API_PARAM_SECURITY_CODE])) {
+			$providedSecurityCode = $requestParams[PWLESS_API_PARAM_SECURITY_CODE];
 		}
 
 		$httpCode = 200;
 		try {
-			$userAndKeyData = $this->dbHandler->addDeviceToUser($email, $public_key, $key_type, $key_length, $device_info, $signatureAlgorithm, $providedSecurityCode);
-			$result = $this->userSuccessfullyRegisteredResponse($userAndKeyData, $security_nonce_signed);
+			$userAndKeyData = $this->dbHandler->addDeviceToUser($email, $publicKey, $keyType, $keyLength, $deviceInfo, $signatureAlgorithm, $providedSecurityCode);
+			$result = $this->userSuccessfullyRegisteredResponse($userAndKeyData, $securityNonceSigned);
 			$this->executeHook(self::PWLESS_FLOW_ADD_DEVICE, true, $userAndKeyData);
 		} catch (PasswordLessAuthException $e) {
 			$result = $e->toErrorJsonResponse();
@@ -744,8 +744,8 @@ class PasswordLessManager {
      */
     function deleteDevice ($req, $res, $args) {
         // check for required params
-        $request_params = $this->getParametersFromRequest($req);
-        if ($missingParams = $this->missingParametersForRequest($res, $request_params,
+        $requestParams = $this->getParametersFromRequest($req);
+        if ($missingParams = $this->missingParametersForRequest($res, $requestParams,
         array(PWLESS_API_PARAM_EMAIL, PWLESS_API_PARAM_KEY_ID))) {
             $result = $this->missingParametersResponse($missingParams);
 			$this->executeHook(self::PWLESS_FLOW_DEL_DEVICE, false, "Missing parameters for request");
@@ -753,17 +753,17 @@ class PasswordLessManager {
         }
 
         // mandatory params
-        $email = $request_params[PWLESS_API_PARAM_EMAIL];
-        $key_id = $request_params[PWLESS_API_PARAM_KEY_ID];
+        $email = $requestParams[PWLESS_API_PARAM_EMAIL];
+        $keyId = $requestParams[PWLESS_API_PARAM_KEY_ID];
 
         // do we have a security code?
         $providedSecurityCode = false;
-        if (isset($request_params[PWLESS_API_PARAM_SECURITY_CODE])) {
-			$providedSecurityCode = $request_params[PWLESS_API_PARAM_SECURITY_CODE];
+        if (isset($requestParams[PWLESS_API_PARAM_SECURITY_CODE])) {
+			$providedSecurityCode = $requestParams[PWLESS_API_PARAM_SECURITY_CODE];
 			$httpCode = 200;
 			$result = null;
 			try {
-				if ($this->dbHandler->deleteUserDeviceAndKeyEntry($email, $key_id, $providedSecurityCode)) {
+				if ($this->dbHandler->deleteUserDeviceAndKeyEntry($email, $keyId, $providedSecurityCode)) {
 					$result = $this->requestSucceededResponse();
 					$this->executeHook(self::PWLESS_FLOW_DEL_DEVICE, true, "Device and associated key successfully deleted");
 				} else {
@@ -805,8 +805,8 @@ class PasswordLessManager {
 
         // do we have a security code?
         $providedSecurityCode = false;
-        if (isset($request_params[PWLESS_API_PARAM_SECURITY_CODE])) {
-			$providedSecurityCode = $request_params[PWLESS_API_PARAM_SECURITY_CODE];
+        if (isset($requestParams[PWLESS_API_PARAM_SECURITY_CODE])) {
+			$providedSecurityCode = $requestParams[PWLESS_API_PARAM_SECURITY_CODE];
 			$httpCode = 200;
 			$result = null;
 			try {
@@ -963,8 +963,8 @@ class PasswordLessManager {
         global $pwlessauth_user_id;
 
 		// check for required params
-        $request_params = $this->getParametersFromRequest($req);
-        if ($missingParams = $this->missingParametersForRequest($res, $request_params,
+        $requestParams = $this->getParametersFromRequest($req);
+        if ($missingParams = $this->missingParametersForRequest($res, $requestParams,
         array(PWLESS_API_PARAM_VALUE))) {
 			$result = $this->missingParametersResponse($missingParams);
 			$this->executeHook(self::PWLESS_FLOW_SET_SETTING, false, "Missing parameters for request");
@@ -973,7 +973,7 @@ class PasswordLessManager {
 
         // perform setting operation
 		$setting = $args[PWLESS_API_PARAM_SETTING];
-		$value = $request_params[PWLESS_API_PARAM_VALUE];
+		$value = $requestParams[PWLESS_API_PARAM_VALUE];
         $data = array();
 		$result = $this->dbHandler->setUserSetting($pwlessauth_user_id, $setting, $value);
 		$status = 200;
@@ -1049,18 +1049,18 @@ class PasswordLessManager {
     /**
      * Verifying required params posted or not
      */
-    public function missingParametersForRequest($res, $request_params, $required_fields) {
+    public function missingParametersForRequest($res, $requestParams, $requiredFields) {
         $error = false;
-        $error_fields = "";
+        $errorFields = "";
 
-        foreach ($required_fields as $field) {
-            if (!isset($request_params[$field]) || strlen(trim($request_params[$field])) <= 0) {
+        foreach ($requiredFields as $field) {
+            if (!isset($requestParams[$field]) || strlen(trim($requestParams[$field])) <= 0) {
                 $error = true;
-                $error_fields .= $field . ', ';
+                $errorFields .= $field . ', ';
             }
         }
 
-        if ($error) { return substr($error_fields, 0, -2); }
+        if ($error) { return substr($errorFields, 0, -2); }
         else { return null; }
     }
 
@@ -1079,14 +1079,14 @@ class PasswordLessManager {
     /**
      * Returns a "bad request" 400 response with the given error code and message.
      * @param PSR-7 $res Response routing object
-     * @param Int $error_code Error code (one of PWLESS_ERROR_CODE_*)
-     * @param String $error_msg Human readable error message.
+     * @param Int $errorCode Error code (one of PWLESS_ERROR_CODE_*)
+     * @param String $errorMsg Human readable error message.
      */
-    public function badResponse($error_code = PWLESS_ERROR_CODE_UNDEFINED_ERROR, $error_msg = "") {
+    public function badResponse($errorCode = PWLESS_ERROR_CODE_UNDEFINED_ERROR, $errorMsg = "") {
         $data = array();
         $data[PWLESS_API_PARAM_SUCCESS] = false;
-        $data[PWLESS_API_PARAM_CODE] = $error_code;
-        $data[PWLESS_API_PARAM_MESSAGE] = $error_msg;
+        $data[PWLESS_API_PARAM_CODE] = $errorCode;
+        $data[PWLESS_API_PARAM_MESSAGE] = $errorMsg;
 		return $data;
     }
 
@@ -1191,40 +1191,40 @@ class PasswordLessManager {
     /**
      * Returns a "code validation required" response.
      */
-    function codeValidationRequiredResponse($sec_nonce_signed) {
+    function codeValidationRequiredResponse($secNonceSigned) {
         $data = array();
 
         // general
         $data[PWLESS_API_PARAM_SUCCESS] = false;
         $data[PWLESS_API_PARAM_CODE] = PWLESS_ERROR_CODE_CODE_VALIDATION_REQUIRED;
-        if ($sec_nonce_signed !== false) { $data[PWLESS_API_PARAM_SEC_NONCE_SIGNED] = $sec_nonce_signed; }
+        if ($secNonceSigned !== false) { $data[PWLESS_API_PARAM_SEC_NONCE_SIGNED] = $secNonceSigned; }
         return $data;
     }
 
     /**
      * Echoing json response to client
      * @param PSR-7 $res Response routing object
-     * @param String $status_code Http response code
+     * @param String $statusCode Http response code
      * @param Array $data Json response data object
      */
-    function response($res, $status_code, $data) {
+    function response($res, $statusCode, $data) {
         // setting response content type to json
         $newResponse = $res->withHeader('Content-type', 'application/json');
         // return response
-        return $newResponse->withStatus($status_code)->write(json_encode($data));
+        return $newResponse->withStatus($statusCode)->write(json_encode($data));
     }
 
     /**
      * Checks the existence of a security nonce and, if the server accepts it, signs it and returns it.
      */
-    function securityTokenSignedIfAvailable($request_params) {
-        $security_nonce_signed = false;
-        $security_nonce_required = $this->getValueForSetting(PWLESS_SETTING_USE_SECURITY_NONCE);
-        if ($security_nonce_required && isset($request_params[PWLESS_API_PARAM_SEC_NONCE])) {
-            $sec_nonce = $request_params[PWLESS_API_PARAM_SEC_NONCE];
-            $security_nonce_signed = $this->privateEncryptionHandler()->sign_message($sec_nonce);
+    function securityTokenSignedIfAvailable($requestParams) {
+        $securityNonceSigned = false;
+        $securityNonceRequired = $this->getValueForSetting(PWLESS_SETTING_USE_SECURITY_NONCE);
+        if ($securityNonceRequired && isset($requestParams[PWLESS_API_PARAM_SEC_NONCE])) {
+            $secNonce = $requestParams[PWLESS_API_PARAM_SEC_NONCE];
+            $securityNonceSigned = $this->privateEncryptionHandler()->sign_message($secNonce);
         }
-        return $security_nonce_signed;
+        return $securityNonceSigned;
     }
 }
 ?>

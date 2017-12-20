@@ -41,14 +41,14 @@ class EncryptionHandler {
 		$success = false;
 		$encrypted = "";
 		if ($this->config->publicOrPrivate == PWLESS_KEY_TYPE_PUBLIC) {
-			$key_ref = openssl_get_publickey($this->config->keyData);
-			$success = openssl_public_encrypt($message, $encrypted, $key_ref);
-			openssl_free_key($key_ref);
+			$keyRef = openssl_get_publickey($this->config->keyData);
+			$success = openssl_public_encrypt($message, $encrypted, $keyRef);
+			openssl_free_key($keyRef);
 		}
 		else if ($this->config->publicOrPrivate == PWLESS_KEY_TYPE_PRIVATE) {
-			$key_ref = openssl_get_privatekey($this->config->keyData);
-			$success = openssl_private_encrypt($message, $encrypted, $key_ref);
-			openssl_free_key($key_ref);
+			$keyRef = openssl_get_privatekey($this->config->keyData);
+			$success = openssl_private_encrypt($message, $encrypted, $keyRef);
+			openssl_free_key($keyRef);
 		}
 
 		// analyze results
@@ -63,14 +63,14 @@ class EncryptionHandler {
 		$data = $wrappedInBase64 ? base64_decode($message) : $message;
 
 		if ($this->config->publicOrPrivate == PWLESS_KEY_TYPE_PUBLIC) {
-			$key_ref = openssl_get_publickey($this->config->keyData);
-			$success = openssl_public_decrypt($data, $decrypted, $key_ref);
-			openssl_free_key($key_ref);
+			$keyRef = openssl_get_publickey($this->config->keyData);
+			$success = openssl_public_decrypt($data, $decrypted, $keyRef);
+			openssl_free_key($keyRef);
 		}
 		else if ($this->config->publicOrPrivate == PWLESS_KEY_TYPE_PRIVATE) {
-			$key_ref = openssl_get_privatekey($this->config->keyData);
-			$success = openssl_private_decrypt($data, $decrypted, $key_ref);
-			openssl_free_key($key_ref);
+			$keyRef = openssl_get_privatekey($this->config->keyData);
+			$success = openssl_private_decrypt($data, $decrypted, $keyRef);
+			openssl_free_key($keyRef);
 		}
 
 		// analyze results
@@ -81,8 +81,8 @@ class EncryptionHandler {
 	public function sign_message($message, $wrapInBase64 = true) {
 		if ($this->config->publicOrPrivate == PWLESS_KEY_TYPE_PUBLIC) { return false; }
 		else {
-			if ($key_data = $this->config->keyData) {
-				$status = openssl_sign($message, $signature, $key_data, $this->config->signatureAlgorithm);
+			if ($keyData = $this->config->keyData) {
+				$status = openssl_sign($message, $signature, $keyData, $this->config->signatureAlgorithm);
 				if ($status == false) { return false; }
 				else if ($wrapInBase64) { return base64_encode($signature); }
 				else { return $signature; }
@@ -90,10 +90,10 @@ class EncryptionHandler {
 		}
 	}
 
-	public function validate_signature($base64encoded_data, $base64encoded_signature) {
-		$signature = base64_decode($base64encoded_signature);
-		$key_data = openssl_get_publickey($this->config->keyData);
-		$result = openssl_verify($base64encoded_data, $signature, $key_data, $this->config->signatureAlgorithm);
+	public function validate_signature($base64encodedData, $base64encodedSignature) {
+		$signature = base64_decode($base64encodedSignature);
+		$keyData = openssl_get_publickey($this->config->keyData);
+		$result = openssl_verify($base64encodedData, $signature, $keyData, $this->config->signatureAlgorithm);
 		if ($result == 1) { return true; } else { return false; }
 	}
 
@@ -181,13 +181,13 @@ class EncryptionHandler {
         return $keyData;
     }
 
-    public static function keyConfigurationAllowed($key_type, $key_length, $signature_algorithm) {
-        if ($key_type == PWLESS_KEY_TYPE_RSA) {
-            if ($key_length == 2048 || $key_length == 4096) {
-                if ($signature_algorithm == "SHA1") { return true; }
+    public static function keyConfigurationAllowed($keyType, $keyLength, $signatureAlgorithm) {
+        if ($keyType == PWLESS_KEY_TYPE_RSA) {
+            if ($keyLength == 2048 || $keyLength == 4096) {
+                if ($signatureAlgorithm == "SHA1") { return true; }
             }
-        } else if ($key_type == PWLESS_KEY_TYPE_EC) {
-            if ($key_length == 256 && $signature_algorithm == "ecdsa-with-SHA1") { return true; }
+        } else if ($keyType == PWLESS_KEY_TYPE_EC) {
+            if ($keyLength == 256 && $signatureAlgorithm == "ecdsa-with-SHA1") { return true; }
         }
         return false;
     }
