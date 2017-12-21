@@ -779,7 +779,7 @@ class PasswordLessManager {
         	return $this->response($res, $httpCode, $result);
 		} else { // require security code
 			$httpCode = 400;
-			$userSecurityCode = $this->db->securityCodeForUserWithEmail($email);
+			$userSecurityCode = $this->dbHandler->securityCodeForUserWithEmail($email);
             if ($this->mailHandler->sendSecurityCodeEmail($email, $userSecurityCode)) {
 				$this->executeHook(self::PWLESS_FLOW_DEL_DEVICE, false, "Code validation required for deleting device.");
                 $result =  $this->codeValidationRequiredResponse(false);
@@ -826,7 +826,7 @@ class PasswordLessManager {
         	return $this->response($res, $httpCode, $result);
 		} else { // require security code
 			$httpCode = 400;
-			$userSecurityCode = $this->db->securityCodeForUserWithEmail($email);
+			$userSecurityCode = $this->dbHandler->securityCodeForUserWithEmail($email);
             if ($this->mailHandler->sendSecurityCodeEmail($email, $userSecurityCode)) {
 				$this->executeHook(self::PWLESS_FLOW_DEL_USER, false, "Code validation required for deleting user account.");
                 $result =  $this->codeValidationRequiredResponse(false);
