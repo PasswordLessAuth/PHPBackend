@@ -807,6 +807,7 @@ class PasswordLessManager {
 
         // do we have a security code?
         $providedSecurityCode = false;
+        $requestParams = $this->getParametersFromRequest($req);
         if (isset($requestParams[PWLESS_API_PARAM_SECURITY_CODE])) {
 			$providedSecurityCode = $requestParams[PWLESS_API_PARAM_SECURITY_CODE];
 			$httpCode = 200;
