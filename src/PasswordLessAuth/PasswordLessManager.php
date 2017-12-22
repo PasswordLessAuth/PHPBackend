@@ -802,6 +802,8 @@ class PasswordLessManager {
     function deleteUserAccount ($req, $res, $args) {
 		global $pwlessauth_user_id;
 		global $pwlessauth_user_key;
+		global $pwlessauth_user_info;
+		$email = $pwlessauth_user_info[PWLESS_API_PARAM_EMAIL];
 
         // do we have a security code?
         $providedSecurityCode = false;
