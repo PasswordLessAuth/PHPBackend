@@ -813,7 +813,7 @@ class PasswordLessManager {
 			$httpCode = 200;
 			$result = null;
 			try {
-				if ($this->dbHandler->deleteUserDeviceAndKeyEntry($email, $pwlessauth_user_key, $providedSecurityCode)) {
+				if ($this->dbHandler->deleteUserAccount($pwlessauth_user_id, $providedSecurityCode)) {
 					$result = $this->requestSucceededResponse();
 					$this->executeHook(self::PWLESS_FLOW_DEL_USER, true, "Device and associated key successfully deleted");
 				} else {
