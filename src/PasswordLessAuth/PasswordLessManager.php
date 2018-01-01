@@ -598,7 +598,7 @@ class PasswordLessManager {
             $data[PWLESS_API_PARAM_CODE] = PWLESS_ERROR_CODE_SUCCESS;
             $data[PWLESS_API_PARAM_LOGIN_TOKEN] = $result;
             if ($securityNonceSigned !== false) { $data[PWLESS_API_PARAM_SEC_NONCE_SIGNED] = $securityNonceSigned; }
-			$this->executeHook(self::PWLESS_FLOW_LOGIN, true, $result);
+			$this->executeHook(self::PWLESS_FLOW_LOGIN, true, array(PWLESS_API_PARAM_EMAIL => $email, PWLESS_API_PARAM_KEY_ID => $keyId));
             return $this->response($res, 200, $data);
         }
     }
@@ -815,7 +815,7 @@ class PasswordLessManager {
 			try {
 				if ($this->dbHandler->deleteUserAccount($pwlessauth_user_id, $providedSecurityCode)) {
 					$result = $this->requestSucceededResponse();
-					$this->executeHook(self::PWLESS_FLOW_DEL_USER, true, "Device and associated key successfully deleted");
+					$this->executeHook(self::PWLESS_FLOW_DEL_USER, true, $pwlessauth_user_info);
 				} else {
 					$httpCode = 400;
 					$result = $this->badRequestResponse();
