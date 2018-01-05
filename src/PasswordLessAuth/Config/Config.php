@@ -68,6 +68,7 @@ define ('PWLESS_API_PARAM_SIGNATURE_ALGORITHM', 'signature_algorithm');
 define ('PWLESS_API_PARAM_USER_ID', 'user_id');
 define ('PWLESS_API_PARAM_CERTIFICATE', 'certificate');
 define ('PWLESS_API_PARAM_VALUE', 'value');
+define ('PWLESS_API_PARAM_INFO', 'info');
 
 /**
  * Error codes

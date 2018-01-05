@@ -498,7 +498,7 @@ class PasswordLessManager {
 		try {
         	$registeredUser = $this->dbHandler->registerUser($email, $publicKey, $keyType, $keyLength, $deviceInfo, $signatureAlgorithm, $securityNonceSigned, $mustConfirmEmail);
 			$result = $this->userSuccessfullyRegisteredResponse($registeredUser, $securityNonceSigned);
-			$this->executeHook(self::PWLESS_FLOW_SIGNUP, true, $registeredUser);
+			$this->executeHook(self::PWLESS_FLOW_SIGNUP, true, array(PWLESS_API_PARAM_USER => $registeredUser));
 		} catch (PasswordLessAuthException $e) {
 			$httpCode = 400;
 
@@ -542,7 +542,7 @@ class PasswordLessManager {
         $email = $this->publicEncryptionHandler()->decrypt_message($code);
         if ($email) {
 			$result = $this->simpleSuccessfulResponse("Account successfully confirmed. Thank you.");
-			$this->executeHook(self::PWLESS_FLOW_CONFIRM, true, $email);
+			$this->executeHook(self::PWLESS_FLOW_CONFIRM, true, array(PWLESS_API_PARAM_EMAIL => $email));
 			return $this->response($res, 200, $result);
 		} else {
 			$result = $this->badVerificationCodeResponse();
@@ -636,7 +636,7 @@ class PasswordLessManager {
 			$result[PWLESS_API_PARAM_SUCCESS] = true;
 			$result[PWLESS_API_PARAM_CODE] = PWLESS_ERROR_CODE_SUCCESS;
 			$result[PWLESS_API_PARAM_MESSAGE] = "Access granted.";
-			$this->executeHook(self::PWLESS_FLOW_ACCESS_TOKEN, true, $result[PWLESS_API_PARAM_AUTH][PWLESS_API_PARAM_ACCESS_TOKEN]);
+			$this->executeHook(self::PWLESS_FLOW_ACCESS_TOKEN, true, array(PWLESS_API_PARAM_ACCESS_TOKEN => $result[PWLESS_API_PARAM_AUTH][PWLESS_API_PARAM_ACCESS_TOKEN], PWLESS_API_PARAM_EMAIL => $email, PWLESS_API_PARAM_KEY_ID => $keyId));
 		} catch (PasswordLessAuthException $e) {
 			$httpCode = 400;
 			$result = $e->toErrorJsonResponse();
@@ -670,7 +670,7 @@ class PasswordLessManager {
             $data[PWLESS_API_PARAM_SUCCESS] = true;
             $data[PWLESS_API_PARAM_CODE] = PWLESS_ERROR_CODE_SUCCESS;
             $data[PWLESS_API_PARAM_MESSAGE] = "You are successfully logged out. We miss you already!";
-			$this->executeHook(self::PWLESS_FLOW_LOGOUT, true, array($pwlessauth_user_id, $pwlessauth_user_key));
+			$this->executeHook(self::PWLESS_FLOW_LOGOUT, true, array(PWLESS_API_PARAM_USER_ID => $pwlessauth_user_id, PWLESS_API_PARAM_KEY_ID => $pwlessauth_user_key));
             return $this->response($res, 200, $data);
         }
     }
@@ -727,7 +727,7 @@ class PasswordLessManager {
 		try {
 			$userAndKeyData = $this->dbHandler->addDeviceToUser($email, $publicKey, $keyType, $keyLength, $deviceInfo, $signatureAlgorithm, $providedSecurityCode);
 			$result = $this->userSuccessfullyRegisteredResponse($userAndKeyData, $securityNonceSigned);
-			$this->executeHook(self::PWLESS_FLOW_ADD_DEVICE, true, $userAndKeyData);
+			$this->executeHook(self::PWLESS_FLOW_ADD_DEVICE, true, array(PWLESS_API_PARAM_USER => $userAndKeyData));
 		} catch (PasswordLessAuthException $e) {
 			$result = $e->toErrorJsonResponse();
 			$httpCode = 400;
@@ -765,7 +765,7 @@ class PasswordLessManager {
 			try {
 				if ($this->dbHandler->deleteUserDeviceAndKeyEntry($email, $keyId, $providedSecurityCode)) {
 					$result = $this->requestSucceededResponse();
-					$this->executeHook(self::PWLESS_FLOW_DEL_DEVICE, true, "Device and associated key successfully deleted");
+					$this->executeHook(self::PWLESS_FLOW_DEL_DEVICE, true, array(PWLESS_API_PARAM_EMAIL => $email, PWLESS_API_PARAM_KEY_ID => $keyId));
 				} else {
 					$httpCode = 400;
 					$result = $this->badRequestResponse();
@@ -815,7 +815,7 @@ class PasswordLessManager {
 			try {
 				if ($this->dbHandler->deleteUserAccount($pwlessauth_user_id, $providedSecurityCode)) {
 					$result = $this->requestSucceededResponse();
-					$this->executeHook(self::PWLESS_FLOW_DEL_USER, true, $pwlessauth_user_info);
+					$this->executeHook(self::PWLESS_FLOW_DEL_USER, true, array(PWLESS_API_PARAM_USER => $pwlessauth_user_info));
 				} else {
 					$httpCode = 400;
 					$result = $this->badRequestResponse();
@@ -862,7 +862,7 @@ class PasswordLessManager {
         $data[PWLESS_API_PARAM_PUBLIC_KEY] = $this->publicEncryptionHandler()->getServerPublicKeyData();
 
 		// execute hook with just settings and public key information.
-		$this->executeHook(self::PWLESS_FLOW_PWLESSINFO, true, $data);
+		$this->executeHook(self::PWLESS_FLOW_PWLESSINFO, true, array(PWLESS_API_PARAM_INFO => $data));
 
         $data[PWLESS_API_PARAM_SUCCESS] = true;
         $data[PWLESS_API_PARAM_CODE] = PWLESS_ERROR_CODE_SUCCESS;
@@ -892,7 +892,7 @@ class PasswordLessManager {
 			$data[PWLESS_API_PARAM_USER_ID] = $pwlessauth_user_id;
 			$data[PWLESS_API_PARAM_KEY_ID] = $pwlessauth_user_key;
             $data[PWLESS_API_PARAM_USER] = $result;
-			$this->executeHook(self::PWLESS_FLOW_MYINFO, true, $result);
+			$this->executeHook(self::PWLESS_FLOW_MYINFO, true, array(PWLESS_API_PARAM_USER => $result));
         }
         return $this->response($res, 200, $data);
     }
@@ -920,7 +920,7 @@ class PasswordLessManager {
 		$data[PWLESS_API_PARAM_CODE] = PWLESS_ERROR_CODE_SUCCESS;
 		$data[PWLESS_API_PARAM_SETTINGS] = $result;
 
-		$this->executeHook(self::PWLESS_FLOW_GET_SETTINGS, true, $result);
+		$this->executeHook(self::PWLESS_FLOW_GET_SETTINGS, true, array(PWLESS_API_PARAM_SETTINGS => $result));
         return $this->response($res, $status, $data);
 	}
 
@@ -950,7 +950,7 @@ class PasswordLessManager {
             $data[PWLESS_API_PARAM_CODE] = PWLESS_ERROR_CODE_SUCCESS;
             $data[PWLESS_API_PARAM_SETTING] = $result;
 
-			$this->executeHook(self::PWLESS_FLOW_GET_SETTING, true, $result);
+			$this->executeHook(self::PWLESS_FLOW_GET_SETTING, true, array(PWLESS_API_PARAM_SETTING => $result));
         }
         return $this->response($res, $status, $data);
 	}
@@ -997,7 +997,7 @@ class PasswordLessManager {
 			);
 			$data[PWLESS_API_PARAM_SETTING] = $settingObject;
 
-			$this->executeHook(self::PWLESS_FLOW_SET_SETTING, true, $settingObject);
+			$this->executeHook(self::PWLESS_FLOW_SET_SETTING, true, array(PWLESS_API_PARAM_SETTING => $settingObject));
         }
         return $this->response($res, $status, $data);
 	}
@@ -1027,7 +1027,7 @@ class PasswordLessManager {
             $data[PWLESS_API_PARAM_SUCCESS] = true;
             $data[PWLESS_API_PARAM_CODE] = PWLESS_ERROR_CODE_SUCCESS;
 
-			$this->executeHook(self::PWLESS_FLOW_DEL_SETTING, true, "Successfully deleted setting ".$setting.".");
+			$this->executeHook(self::PWLESS_FLOW_DEL_SETTING, true, array(PWLESS_API_PARAM_SETTING => $setting));
         }
         return $this->response($res, $status, $data);
 	}
