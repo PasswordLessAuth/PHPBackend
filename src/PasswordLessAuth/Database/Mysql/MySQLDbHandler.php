@@ -838,6 +838,7 @@ class MySQLDbHandler implements DbHandler {
     public function userStatusIsValid($email, $confirmAccountMode) {
         // check user status
         $userData = $this->getUserByEmail($email);
+		error_log("Checking if account for $email is valid. Confirm account mode: $confirmAccountMode");
         if (!$userData) { return false; }
 
         // disabled or confirmed users get a direct answer
@@ -849,9 +850,10 @@ class MySQLDbHandler implements DbHandler {
                 // check creation date for unconfirmed users on lax mode.
                 $date = $userData[PWLESS_API_PARAM_CREATED_AT];
                 return !$this->dateIsMoreThanAWeekInThePast($date);
-            } else { // mode = PWLESS_CONFIRMATION_EMAIL_STRICT
+            } else if ($confirmAccountMode == PWLESS_CONFIRMATION_EMAIL_STRICT) {
+				// mode = PWLESS_CONFIRMATION_EMAIL_STRICT
                 return false;
-            }
+            } else { return true; }
         }
     }
     
