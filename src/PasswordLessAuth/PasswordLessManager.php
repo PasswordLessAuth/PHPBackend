@@ -341,9 +341,7 @@ class PasswordLessManager {
      * Returns true if account confirmation via email is enabled, either lax or strict.
      */
     function mustConfirmAccountByEmail() {
-		error_log("Calculating if user needs to confirm account by email...");
         $confirmMode = $this->getValueForSetting(PWLESS_SETTING_CONFIRM_ACCOUNT_MODE);
-		error_log("Confirm mode: $confirmMode");
         if (!$confirmMode) { return false; }
         else if ($confirmMode == PWLESS_CONFIRMATION_EMAIL_LAX || $confirmMode == PWLESS_CONFIRMATION_EMAIL_STRICT) { return true; }
         return false;

@@ -50,7 +50,6 @@ class MySQLDbHandler implements DbHandler {
         // First check if user already existed in db
         if ($userData === false) { // First Device Registration. Generate user entry, login and api tokens.
 			$status = $mustConfirmEmail ? PWLESS_ACCOUNT_UNCONFIRMED : PWLESS_ACCOUNT_CONFIRMED;
-			error_log("Must confirm email? $mustConfirmEmail, so status is set to $status.");
             // Now verify the key
             if (!$this->verifyKeyValidity($keyData, $keyType, $keyLength, $signatureAlgorithm)) {
 				throw new PasswordLessAuthException("Sorry, the provided key is invalid or in a unsupported format.", PWLESS_ERROR_CODE_INVALID_KEY);
