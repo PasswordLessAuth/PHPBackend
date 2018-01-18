@@ -17,6 +17,8 @@
 
 require_once __DIR__ . '/../../vendor/autoload.php'; // Autoload files using Composer autoload
 
+error_log(__DIR__ . '/../../vendor/autoload.php');
+
 // Dependencies
 use PasswordLessAuth\Encryption\ServerEncryptionEnvironment;
 use PasswordLessAuth\Database\Mysql\MySQLDbHandler;

@@ -107,8 +107,8 @@ class PasswordLessManager {
             // Initialize database, overwriting previous one if specified.
             $this->dbHandler->initializePasswordLessAuthDatabase($this->optionValueForKey($options, PWLESS_OPTION_RECREATE_PWLESS_DATABASE));
             
-            $this->initializeRoutes();
             $this->initializeSettings();
+            $this->initializeRoutes();
         } else { die("Invalid DbHandler for PasswordLessManager."); }
     }
 
@@ -341,7 +341,9 @@ class PasswordLessManager {
      * Returns true if account confirmation via email is enabled, either lax or strict.
      */
     function mustConfirmAccountByEmail() {
+		error_log("Calculating if user needs to confirm account by email...");
         $confirmMode = $this->getValueForSetting(PWLESS_SETTING_CONFIRM_ACCOUNT_MODE);
+		error_log("Confirm mode: $confirmMode");
         if (!$confirmMode) { return false; }
         else if ($confirmMode == PWLESS_CONFIRMATION_EMAIL_LAX || $confirmMode == PWLESS_CONFIRMATION_EMAIL_STRICT) { return true; }
         return false;
