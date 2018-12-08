@@ -839,6 +839,7 @@ class MySQLDbHandler implements DbHandler {
         // check user status
         $userData = $this->getUserByEmail($email);
 		error_log("Checking if account for $email is valid. Confirm account mode: $confirmAccountMode");
+		error_log(var_export($userData, true));
         if (!$userData) { return false; }
 
         // disabled or confirmed users get a direct answer
