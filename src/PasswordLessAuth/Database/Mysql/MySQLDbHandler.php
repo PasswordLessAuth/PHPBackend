@@ -836,7 +836,7 @@ class MySQLDbHandler implements DbHandler {
      * @param String $confirmAccountMode    The confirm account mode for this PasswordLessAuth server.
      */
     public function userStatusIsValid($email, $confirmAccountMode) {
-		// TODO: fix, figure out why status=0 on some settings
+		// TODO: fix, figure out why status=0 on some settings (change later)
 		if ($confirmAccountMode == PWLESS_CONFIRMATION_EMAIL_NONE) { return true; }
 
         // check user status
