@@ -12,7 +12,7 @@ namespace PasswordLessAuth\Utils;
 require_once (__DIR__.'/../Config/Config.php');
 
 class PasswordLessUtils {
-    
+
     /**
      * Tries to infer the Base URL for the API of the backend for this service, application or SaaS.
      */
@@ -47,7 +47,6 @@ class PasswordLessUtils {
             $data[PWLESS_API_PARAM_SUCCESS] = false;
             $data[PWLESS_API_PARAM_CODE] = PWLESS_ERROR_CODE_MALFORMED_EMAIL_ADDRESS;
             $data[PWLESS_API_PARAM_MESSAGE] = "Email address is not valid";
-            $this->response($res, 400, $data);
             return false;
         }
         return true;
